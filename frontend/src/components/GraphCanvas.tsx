@@ -13,12 +13,22 @@ interface GraphCanvasProps {
   data: GraphData;
   selectedNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
+  showLabels?: boolean;
+  nodeRadius?: number;
+  cycleEdgeKeys?: ReadonlySet<string>;
 }
 
 const INK = '#3D325F';
 const ACCENT = '#8074A4';
 
-export function GraphCanvas({ data, selectedNodeId, onSelectNode }: GraphCanvasProps) {
+export function GraphCanvas({
+  data,
+  selectedNodeId,
+  onSelectNode,
+  showLabels = true,
+  nodeRadius = 9,
+  cycleEdgeKeys,
+}: GraphCanvasProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
@@ -66,13 +76,22 @@ export function GraphCanvas({ data, selectedNodeId, onSelectNode }: GraphCanvasP
       .selectAll<SVGLineElement, GraphLink>('line')
       .data(links)
       .join('line')
-      .attr('stroke-width', 1.6);
+      .attr('stroke-width', (d) => {
+        const s = typeof d.source === 'string' ? d.source : d.source.id;
+        const t = typeof d.target === 'string' ? d.target : d.target.id;
+        return (cycleEdgeKeys?.has(`${s}→${t}`) ?? false) ? 2.4 : 1.6;
+      })
+      .attr('stroke', (d) => {
+        const s = typeof d.source === 'string' ? d.source : d.source.id;
+        const t = typeof d.target === 'string' ? d.target : d.target.id;
+        return (cycleEdgeKeys?.has(`${s}→${t}`) ?? false) ? '#d64c4c' : INK;
+      });
 
     const nodeSel = nodeLayer
       .selectAll<SVGCircleElement, GraphNode>('circle')
       .data(nodes)
       .join('circle')
-      .attr('r', 9)
+      .attr('r', nodeRadius)
       .attr('fill', (d) => (d.id === selectedNodeId ? ACCENT : 'rgba(255,255,255,0.75)'))
       .attr('stroke', (d) => (d.id === selectedNodeId ? ACCENT : INK))
       .attr('stroke-width', 2)
@@ -110,6 +129,7 @@ export function GraphCanvas({ data, selectedNodeId, onSelectNode }: GraphCanvasP
       .attr('dx', 12)
       .attr('dy', 4)
       .style('pointer-events', 'none');
+    labelSel.style('display', showLabels ? 'block' : 'none');
 
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
@@ -144,7 +164,7 @@ export function GraphCanvas({ data, selectedNodeId, onSelectNode }: GraphCanvasP
       ro.disconnect();
       sim.stop();
     };
-  }, [links, nodes, onSelectNode, selectedNodeId]);
+  }, [links, nodeRadius, nodes, onSelectNode, selectedNodeId, showLabels, cycleEdgeKeys]);
 
   useEffect(() => {
     const svgEl = svgRef.current;
