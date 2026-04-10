@@ -3,6 +3,9 @@ fastapi==0.125.0
 uvicorn==0.38.0
 starlette==0.50.0
 
+# Database
+SQLAlchemy==2.0.43
+
 # Data Validation
 pydantic==2.12.5
 pydantic_core==2.41.5

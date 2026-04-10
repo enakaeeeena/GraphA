@@ -13,11 +13,11 @@
 
 ## Установка
 
-1. Убедитесь, что у вас установлен Python 3.8+
+1. Убедитесь, что у вас установлен Python 3.10+ (рекомендуется). На Windows можно использовать `py`.
 
 2. Создайте виртуальное окружение:
 ```bash
-python -m venv venv
+py -m venv venv
 ```
 
 3. Активируйте виртуальное окружение:
@@ -42,7 +42,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 Или через Python:
 ```bash
-python -m app.main
+py -m app.main
 ```
 
 API будет доступен по адресу: `http://localhost:8000`
@@ -51,71 +51,28 @@ API будет доступен по адресу: `http://localhost:8000`
 
 ## API Endpoints
 
-### POST `/api/v1/analyze`
-Запускает анализ репозитория.
+### POST `/api/v1/projects`
+Создать проект (сохраняется в SQLite).
 
 **Request:**
 ```json
 {
+  "name": "my-project",
   "repo_url": "https://github.com/user/repo.git"
 }
 ```
 
-**Response:**
-```json
-{
-  "session_id": "uuid",
-  "status": "processing",
-  "repository": {
-    "url": "https://github.com/user/repo.git",
-    "name": "repo",
-    "analyzed_at": null
-  },
-  "files": [],
-  "graph_data": {
-    "nodes": [],
-    "links": []
-  }
-}
-```
+### POST `/api/v1/projects/{project_id}/analyze`
+Запустить анализ проекта. Создаёт `AnalysisRun` и сохраняет снапшот (файлы/зависимости/метрики) в БД.
 
-### GET `/api/v1/session/{session_id}`
-Получает статус сессии анализа.
+### GET `/api/v1/runs/{run_id}`
+Получить статус запуска анализа (`processing/completed/failed`).
 
-### GET `/api/v1/session/{session_id}/result`
-Получает результат анализа с графом данных для D3.js.
+### GET `/api/v1/projects/{project_id}/graph?run_id=...`
+Получить граф зависимостей (формат D3: `nodes`/`links`) для конкретного запуска или последнего.
 
-**Response:**
-```json
-{
-  "session_id": "uuid",
-  "status": "completed",
-  "repository": {...},
-  "files": [
-    {
-      "file_path": "src/components/Button.tsx",
-      "file_type": "tsx",
-      "sloc": 150,
-      "dependencies": [...],
-      "metrics": {
-        "in_degree": 5,
-        "out_degree": 3,
-        "centrality": 0.15
-      }
-    }
-  ],
-  "graph_data": {
-    "nodes": [...],
-    "links": [...]
-  },
-  "statistics": {
-    "total_files": 50,
-    "total_dependencies": 120,
-    "average_in_degree": 2.4,
-    "average_out_degree": 2.4
-  }
-}
-```
+### GET `/api/v1/projects/{project_id}/metrics?run_id=...`
+Получить метрики по файлам для конкретного запуска или последнего.
 
 ## Структура проекта
 
@@ -123,22 +80,19 @@ API будет доступен по адресу: `http://localhost:8000`
 backend/
 ├── app/
 │   ├── __init__.py
-│   ├── main.py              # FastAPI приложение и роуты
-│   ├── config.py            # Конфигурация и настройки
-│   ├── models/
-│   │   ├── __init__.py
-│   │   └── schemas.py       # Pydantic схемы
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── repo_loader.py   # Клонирование репозиториев
-│   │   ├── file_scanner.py  # Сканирование файлов
-│   │   ├── parser.py        # Парсинг импортов
-│   │   └── graph.py         # Построение графов
-│   └── utils/
-│       ├── __init__.py
-│       └── paths.py         # Утилиты для работы с путями
+│   ├── main.py                 # FastAPI приложение (подключение роутеров + init БД)
+│   ├── config.py               # Конфигурация и настройки (включая SQLite)
+│   ├── database/               # SQLAlchemy engine/session/base
+│   ├── models/                 # ORM модели (Project, AnalysisRun, FileNode, ...)
+│   ├── schemas/                # Pydantic схемы (request/response)
+│   ├── repositories/           # Repository pattern (доступ к БД)
+│   ├── services/               # Бизнес-логика (analysis_service, graph_service)
+│   ├── api/                    # Роутеры FastAPI (projects/analysis/graph/metrics)
+│   ├── graph/                  # Парсер/экстрактор/построитель графа
+│   └── utils/                  # Утилиты для работы с путями
 ├── repositories/            # Клонированные репозитории (создается автоматически)
 ├── temp/                    # Временные файлы (создается автоматически)
+├── data/                    # SQLite база (создается автоматически)
 ├── requirements.txt
 └── README.md
 ```
@@ -153,7 +107,7 @@ backend/
 
 ## Примечания
 
-- В текущей реализации сессии хранятся в памяти. Для продакшена рекомендуется использовать базу данных (PostgreSQL, MongoDB)
+- Данные анализа теперь сохраняются в SQLite (`backend/data/app.db`), чтобы можно было отслеживать эволюцию зависимостей.
 - Для больших репозиториев может потребоваться оптимизация парсинга
 - CORS настроен для всех источников - в продакшене нужно ограничить
 

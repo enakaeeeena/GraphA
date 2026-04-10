@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { AnalyzeForm } from './components/AnalyzeForm';
 import { SessionStatusComponent } from './components/SessionStatus';
 import { AnalysisResultComponent } from './components/AnalysisResult';
+import { GraphPage } from './components/GraphPage';
 import type { AnalyzeResponse, AnalysisResult } from './types/api';
 
 function App() {
   const [currentSession, setCurrentSession] = useState<AnalyzeResponse | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<'analyze' | 'graph'>('analyze');
 
   const handleAnalysisStart = (response: AnalyzeResponse) => {
     setCurrentSession(response);
@@ -18,6 +20,7 @@ function App() {
   const handleAnalysisComplete = (result: AnalysisResult) => {
     setAnalysisResult(result);
     setCurrentSession(null);
+    setView('analyze');
   };
 
   const handleError = (errorMessage: string) => {
@@ -29,7 +32,12 @@ function App() {
     setCurrentSession(null);
     setAnalysisResult(null);
     setError(null);
+    setView('analyze');
   };
+
+  if (analysisResult && view === 'graph') {
+    return <GraphPage result={analysisResult} onBack={() => setView('analyze')} />;
+  }
 
   return (
     <div style={{ 
@@ -106,6 +114,21 @@ function App() {
           >
             Новый анализ
           </button>
+          <button
+            onClick={() => setView('graph')}
+            style={{
+              marginBottom: '20px',
+              marginLeft: '10px',
+              padding: '8px 16px',
+              backgroundColor: '#8074A4',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            Открыть граф
+          </button>
           <AnalysisResultComponent result={analysisResult} />
         </div>
       )}
@@ -114,6 +137,7 @@ function App() {
 }
 
 export default App;
+
 
 
 

@@ -6,10 +6,13 @@ from typing import List
 BASE_DIR = Path(__file__).parent.parent
 REPOS_DIR = BASE_DIR / "repositories"
 TEMP_DIR = BASE_DIR / "temp"
+DB_DIR = BASE_DIR / "data"
+DB_PATH = DB_DIR / "app.db"
 
 # Создаем директории если их нет
 REPOS_DIR.mkdir(exist_ok=True)
 TEMP_DIR.mkdir(exist_ok=True)
+DB_DIR.mkdir(exist_ok=True)
 
 # Настройки анализа
 SUPPORTED_EXTENSIONS: List[str] = [".js", ".ts", ".jsx", ".tsx"]
@@ -31,4 +34,7 @@ GRAPH_LAYOUT = "force"  # или "hierarchical", "circular"
 
 # Настройки API
 API_PREFIX = "/api/v1"
+
+# Настройки БД
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH.as_posix()}")
 
