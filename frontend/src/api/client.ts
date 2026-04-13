@@ -218,17 +218,29 @@ export class ApiClient {
       this.getMetrics(projectId, runId),
     ]);
 
-    const files = metrics.metrics.map((m) => ({
-      file_path: m.file_path,
-      file_type: m.file_type,
-      sloc: m.lines_count,
-      dependencies: [],
-      metrics: {
-        in_degree: m.metrics?.fan_in ?? 0,
-        out_degree: m.metrics?.fan_out ?? 0,
-        centrality: m.metrics?.centrality ?? 0,
-      },
-    }));
+    // Строим словарь: какой файл что импортирует (из links графа)
+const outgoingLinks = new Map<string, string[]>();
+for (const link of graph.graph.links) {
+  const source = String(link.source);
+  const target = String(link.target);
+  if (!outgoingLinks.has(source)) outgoingLinks.set(source, []);
+  outgoingLinks.get(source)!.push(target);
+}
+
+const files = metrics.metrics.map((m) => ({
+  file_path: m.file_path,
+  file_type: m.file_type,
+  sloc: m.lines_count,
+  dependencies: (outgoingLinks.get(m.file_path) ?? []).map((target) => ({
+    import_path: target,
+    import_type: 'relative',
+  })),
+  metrics: {
+    in_degree: m.metrics?.fan_in ?? 0,
+    out_degree: m.metrics?.fan_out ?? 0,
+    centrality: m.metrics?.centrality ?? 0,
+  },
+}));
 
     const totalFiles = files.length;
     const totalDependencies = Array.isArray(graph.graph.links) ? graph.graph.links.length : 0;
