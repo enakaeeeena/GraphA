@@ -5,7 +5,7 @@ import { apiClient } from '../api/client';
 import { GraphTree } from './GraphTree.tsx';
 import { MetricsTab } from './MetricsTab';
 import { GraphCanvasHierarchical } from './GraphCanvasHierarchical';
-
+import { GraphCanvasRadial } from './GraphCanvasRadial';
 interface GraphPageProps {
   sessionId: string;
   onBack: (repoUrl?: string) => void;
@@ -165,8 +165,7 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
   const [hideBuild, setHideBuild] = useState(true);
   const [depth, setDepth] = useState<GraphDepth>('all');
   const [nodeSize, setNodeSize] = useState<NodeSize>('M');
-  const [graphMode, setGraphMode] = useState<'force' | 'hierarchy'>('force');
-
+ const [graphMode, setGraphMode] = useState<'force' | 'hierarchy' | 'radial'>('force');
   useEffect(() => {
     let cancelled = false; let intervalId: number | undefined; let stopped = false;
     const stopPolling = () => { if (stopped) return; stopped = true; if (intervalId) window.clearInterval(intervalId); };
@@ -205,14 +204,15 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
   }, [selectedId]);
 
   const handleFocusToggle = (path: string) => {
-    if (focusedPath === path) {
-      setFocusedPath(null); setDepth('all');
-    } else {
-      setFocusedPath(path); setSelectedId(path);
-      if (depth === 'all') setDepth('1');
-      
-    }
-  };
+  if (focusedPath === path) {
+    setFocusedPath(null);
+    setDepth('all');
+  } else {
+    setFocusedPath(path);
+    setSelectedId(path); // ← уже есть
+    if (depth === 'all') setDepth('1');
+  }
+};
 
   const handleExport = (scale: number) => {
     const svgEl = graphWrapperRef.current?.querySelector('svg');
@@ -426,6 +426,16 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
               mclIterations={mclIterations}
             />
           )}
+          {result && derived && graphMode === 'radial' && (
+  <GraphCanvasRadial
+    data={derived.graphData}
+    selectedNodeId={effectiveSelectedId}
+    onSelectNode={setSelectedId}
+    cycleEdgeKeys={derived.cycleKeys}
+    mclInflation={mclInflation}
+    mclIterations={mclIterations}
+  />
+)}
           {!result && (
             <div className="graph-loading">
               <div className="graph-loading__title">{error ? 'Ошибка' : 'Загрузка'}</div>
@@ -504,8 +514,41 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
                     <div className="rp-metric-pill"><div className="rp-metric-value">{selectedFile.metrics?.out_degree ?? 0}</div><div className="rp-metric-label">outdegree</div></div>
                     <div className="rp-metric-pill"><div className="rp-metric-value">{selectedFile.metrics?.in_degree ?? 0}</div><div className="rp-metric-label">indegree</div></div>
                     <div className="rp-metric-pill"><div className="rp-metric-value">{(selectedFile.metrics?.centrality ?? 0).toFixed(2)}</div><div className="rp-metric-label">centrality</div></div>
-                    <div className="rp-metric-pill"><div className="rp-metric-value">—</div><div className="rp-metric-label">cycles</div></div>
+                    <div className="rp-metric-pill"><div className="rp-metric-value">{derived?.cycleKeys ? [...derived.cycleKeys].filter((k) => { const [s,t] = k.split('→'); return s===selectedId||t===selectedId; }).length : 0}</div><div className="rp-metric-label">cycles</div></div>
                   </div>
+
+                  {/* Циклические зависимости */}
+                  {derived && derived.cycleKeys.size > 0 && (() => {
+                    const cycles = [...derived.cycleKeys].filter((key) => {
+                      const [src, tgt] = key.split('→');
+                      return src === selectedId || tgt === selectedId;
+                    });
+                    if (!cycles.length) return null;
+                    return (
+                      <>
+                        <div className="rp-section-label" style={{ color: '#d64c4c' }}>
+                          ⚠ Циклические зависимости
+                        </div>
+                        <div className="rp-chips">
+                          {cycles.map((key) => {
+                            const [src, tgt] = key.split('→');
+                            const other = src === selectedId ? tgt : src;
+                            return (
+                              <span
+                                key={key}
+                                className="rp-chip"
+                                title={other}
+                                style={{ cursor: 'pointer', borderColor: '#d64c4c', color: '#d64c4c' }}
+                                onClick={() => other && setSelectedId(other)}
+                              >
+                                {other?.split(/[\\/]/).pop()}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </>
               )}
             </div>
@@ -523,9 +566,10 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
               </div>
 
               <div className="rp-section-label">Макет графа</div>
-              <select className="rp-select" value={graphMode} onChange={(e) => setGraphMode(e.target.value as 'force' | 'hierarchy')}>
+              <select className="rp-select" value={graphMode} onChange={(e) => setGraphMode(e.target.value as 'force' | 'hierarchy' | 'radial')}>
                 <option value="force">Силовой (force-directed)</option>
                 <option value="hierarchy">Иерархический (dagre)</option>
+                <option value="radial">Радиальный</option>
               </select>
 
               <div className="rp-section-label">Глубина отображения</div>

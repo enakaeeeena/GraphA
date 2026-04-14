@@ -68,7 +68,7 @@ export function GraphCanvasHierarchical({
     );
   };
 
-  // renderMini: рисует граф в мини-карте и возвращает MiniCoords
+  // renderMini — возвращает MiniCoords для синхронизации viewport
   const renderMini = useCallback((
     mini: d3.Selection<SVGSVGElement, unknown, null, undefined>,
     W: number,
@@ -86,41 +86,31 @@ export function GraphCanvasHierarchical({
 
     const gW = g2.graph().width ?? 1;
     const gH = g2.graph().height ?? 1;
-
-    // Масштаб чтобы граф занял 92% мини-карты
-    const fitSc = Math.min((W - 8) / gW, (H - 8) / gH) * 0.92;
-    // Центрирование
+    const fitSc = Math.min((W - 8) / gW, (H - 8) / gH) * 0.9;
     const ox = (W - gW * fitSc) / 2;
     const oy = (H - gH * fitSc) / 2;
 
-    // Рёбра
     for (const e of g2.edges()) {
       const pts: Array<{ x: number; y: number }> = g2.edge(e)?.points ?? [];
       if (!pts.length) continue;
       const lf = d3.line<{ x: number; y: number }>()
-        .x((d) => d.x * fitSc + ox)
-        .y((d) => d.y * fitSc + oy)
+        .x((d) => d.x * fitSc + ox).y((d) => d.y * fitSc + oy)
         .curve(d3.curveBasis);
       mini.append('path').attr('d', lf(pts) ?? '')
         .attr('fill', 'none').attr('stroke', INK)
-        .attr('stroke-width', 0.5).attr('stroke-opacity', 0.2);
+        .attr('stroke-width', 0.5).attr('stroke-opacity', 0.25);
     }
-
-    // Узлы
     for (const nodeId of g2.nodes()) {
       const pos = g2.node(nodeId);
       if (!pos || pos.x == null) continue;
       mini.append('rect')
         .attr('x', (pos.x - CARD_W / 2) * fitSc + ox)
         .attr('y', (pos.y - CARD_H / 2) * fitSc + oy)
-        .attr('width', CARD_W * fitSc)
-        .attr('height', CARD_H * fitSc)
-        .attr('rx', 2)
+        .attr('width', CARD_W * fitSc).attr('height', CARD_H * fitSc).attr('rx', 2)
         .attr('fill', clusterColor(clusterMap.get(nodeId) ?? 0))
-        .attr('opacity', nodeId === selectedNodeId ? 0.9 : 0.32);
+        .attr('opacity', nodeId === selectedNodeId ? 0.9 : 0.35);
     }
 
-    // Возвращаем координаты — GraphNavigator использует их для viewport
     return { fitSc, ox, oy };
   }, [data, clusterMap, selectedNodeId]);
 
@@ -180,11 +170,9 @@ export function GraphCanvasHierarchical({
     zoomBehRef.current = zoom;
 
     const sc0 = Math.min(0.9, (W * 0.9) / graphW, (H * 0.9) / graphH);
-    const tx = (W - graphW * sc0) / 2;
-    const ty = (H - graphH * sc0) / 2;
     svg.call(
       (zoom as unknown as d3.ZoomBehavior<SVGSVGElement, unknown>).transform,
-      d3.zoomIdentity.translate(tx, ty).scale(sc0),
+      d3.zoomIdentity.translate((W - graphW * sc0) / 2, (H - graphH * sc0) / 2).scale(sc0),
     );
     setCurrentScale(sc0);
 
@@ -192,8 +180,7 @@ export function GraphCanvasHierarchical({
     for (const e of g.edges()) {
       const pts: Array<{ x: number; y: number }> = g.edge(e)?.points ?? [];
       if (!pts.length) continue;
-      const src = e.v; const tgt = e.w;
-      const isCycle = cycleEdgeKeys?.has(`${src}→${tgt}`) ?? false;
+      const isCycle = cycleEdgeKeys?.has(`${e.v}→${e.w}`) ?? false;
       const lf = d3.line<{ x: number; y: number }>().x((d) => d.x).y((d) => d.y).curve(d3.curveBasis);
       linkLayer.append('path').attr('d', lf(pts) ?? '')
         .attr('fill', 'none')
