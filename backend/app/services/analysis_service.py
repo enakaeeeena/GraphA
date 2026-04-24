@@ -38,22 +38,28 @@ class AnalysisService:
         return project
 
     def start_analysis(self, project_id: int, repo_url: str) -> int:
-        # Clone/pull to get commit hash early (best-effort)
+        # Клонируем репозиторий и сразу получаем commit hash
         repo_path = self.repo_loader.clone_repository(repo_url)
         commit_hash = self._get_commit_hash(repo_path)
 
+        # Создаём запись о запуске — анализ запустит background task
         run = self.runs.create(project_id=project_id, commit_hash=commit_hash)
         self.db.commit()
+
         return run.id
 
     def run_analysis(self, run_id: int, repo_url: str) -> None:
+        """Fallback — клонирует если нет пути (для совместимости)."""
+        repo_path = self.repo_loader.clone_repository(repo_url)
+        self.run_analysis_with_path(run_id, repo_path)
+
+    def run_analysis_with_path(self, run_id: int, repo_path: Path) -> None:
+        """Основной анализ — принимает уже готовый путь без повторного клонирования."""
         run = self.runs.get_by_id(run_id)
         if not run:
             return
 
         try:
-            repo_path = self.repo_loader.clone_repository(repo_url)
-
             files_data, deps_data = self.extractor.extract(repo_path)
             if not files_data:
                 raise RuntimeError("Не найдено поддерживаемых файлов в репозитории")
@@ -61,7 +67,7 @@ class AnalysisService:
             self.graph_builder.build_graph(files_data, deps_data)
             metrics_map = self.graph_builder.calculate_metrics()
 
-            # Persist nodes
+            # Сохраняем узлы пакетом
             file_id_by_path: dict[str, int] = {}
             for file_info in files_data:
                 node = self.files.create(
@@ -73,7 +79,7 @@ class AnalysisService:
                 )
                 file_id_by_path[file_info["file_path"]] = node.id
 
-            # Persist edges (only resolved internal edges are in the graph)
+            # Сохраняем рёбра
             for source, target, edge_data in self.graph_builder.graph.edges(data=True):
                 source_id = file_id_by_path.get(source)
                 target_id = file_id_by_path.get(target)
@@ -86,7 +92,7 @@ class AnalysisService:
                     import_path=edge_data.get("import_path"),
                 )
 
-            # Persist metrics
+            # Сохраняем метрики
             for file_path, m in metrics_map.items():
                 file_id = file_id_by_path.get(file_path)
                 if not file_id:
@@ -111,6 +117,3 @@ class AnalysisService:
             return repo.head.commit.hexsha
         except Exception:
             return None
-
-
-

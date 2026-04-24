@@ -68,24 +68,93 @@ function approxGraphDepth(adj: Map<string, Set<string>>): number {
 }
 
 function findCycleEdgeKeysDirected(links: Array<{ source: string; target: string }>): Set<string> {
-  const g = new Map<string, string[]>(); const rg = new Map<string, string[]>();
-  const addE = (m: Map<string, string[]>, a: string, b: string) => { const arr = m.get(a) ?? []; arr.push(b); m.set(a, arr); };
+  const g  = new Map<string, string[]>();
+  const rg = new Map<string, string[]>();
   const nodes = new Set<string>();
-  for (const l of links) { nodes.add(l.source); nodes.add(l.target); addE(g, l.source, l.target); addE(rg, l.target, l.source); }
-  const visited = new Set<string>(); const order: string[] = [];
-  const dfs1 = (v: string) => { visited.add(v); for (const u of g.get(v) ?? []) if (!visited.has(u)) dfs1(u); order.push(v); };
-  for (const v of nodes) if (!visited.has(v)) dfs1(v);
-  const comp = new Map<string, number>(); let cid = 0;
-  const dfs2 = (v: string) => { comp.set(v, cid); for (const u of rg.get(v) ?? []) if (!comp.has(u)) dfs2(u); };
-  for (let i = order.length - 1; i >= 0; i--) { const v = order[i]!; if (!comp.has(v)) { dfs2(v); cid++; } }
+
+  const addE = (m: Map<string, string[]>, a: string, b: string) => {
+    if (!m.has(a)) m.set(a, []);
+    m.get(a)!.push(b);
+  };
+
+  // Самоциклы — файл импортирует сам себя
+  const selfCycles = new Set<string>();
+
+  for (const l of links) {
+    nodes.add(l.source);
+    nodes.add(l.target);
+    if (l.source === l.target) {
+      selfCycles.add(`${l.source}→${l.target}`);
+    } else {
+      addE(g,  l.source, l.target);
+      addE(rg, l.target, l.source);
+    }
+  }
+
+  // ── Итеративный DFS 1 — порядок завершения ────────────────────────────
+  const visited = new Set<string>();
+  const order: string[] = [];
+
+  for (const start of nodes) {
+    if (visited.has(start)) continue;
+    // Стек: [узел, итератор по соседям]
+    const stack: Array<{ v: string; neighbors: string[]; idx: number }> = [];
+    visited.add(start);
+    stack.push({ v: start, neighbors: g.get(start) ?? [], idx: 0 });
+
+    while (stack.length) {
+      const top = stack[stack.length - 1]!;
+      if (top.idx < top.neighbors.length) {
+        const u = top.neighbors[top.idx++]!;
+        if (!visited.has(u)) {
+          visited.add(u);
+          stack.push({ v: u, neighbors: g.get(u) ?? [], idx: 0 });
+        }
+      } else {
+        order.push(top.v);
+        stack.pop();
+      }
+    }
+  }
+
+  // ── Итеративный DFS 2 — разметка компонент ────────────────────────────
+  const comp = new Map<string, number>();
+  let cid = 0;
+
+  for (let i = order.length - 1; i >= 0; i--) {
+    const start = order[i]!;
+    if (comp.has(start)) continue;
+
+    const stack: string[] = [start];
+    while (stack.length) {
+      const v = stack.pop()!;
+      if (comp.has(v)) continue;
+      comp.set(v, cid);
+      for (const u of rg.get(v) ?? []) {
+        if (!comp.has(u)) stack.push(u);
+      }
+    }
+    cid++;
+  }
+
+  // ── Размер каждой компоненты ──────────────────────────────────────────
   const compSize = new Map<number, number>();
   for (const c of comp.values()) compSize.set(c, (compSize.get(c) ?? 0) + 1);
-  const cycleKeys = new Set<string>();
+
+  // ── Помечаем рёбра внутри нетривиальных SCC ──────────────────────────
+  const cycleKeys = new Set<string>(selfCycles); // самоциклы сразу добавляем
+
   for (const l of links) {
-    const cs = comp.get(l.source), ct = comp.get(l.target);
+    if (l.source === l.target) continue; // уже добавлены
+    const cs = comp.get(l.source);
+    const ct = comp.get(l.target);
     if (cs == null || ct == null) continue;
-    if (cs === ct && (compSize.get(cs) ?? 0) > 1) cycleKeys.add(`${l.source}→${l.target}`);
+    // Ребро в цикле если оба конца в одной SCC размером > 1
+    if (cs === ct && (compSize.get(cs) ?? 0) > 1) {
+      cycleKeys.add(`${l.source}→${l.target}`);
+    }
   }
+
   return cycleKeys;
 }
 // Ограничиваем граф до topN самых связанных узлов
@@ -104,16 +173,27 @@ function limitGraph(
     degree.set(l.target, (degree.get(l.target) ?? 0) + 1);
   }
 
-  // Берём топ N по degree
+  // Берём топ N по degree — только связанные узлы (degree > 0)
   const topIds = new Set(
     [...degree.entries()]
+      .filter(([, d]) => d > 0)          // ← только связанные
       .sort((a, b) => b[1] - a[1])
       .slice(0, topN)
       .map(([id]) => id)
   );
 
-  const filteredNodes = nodes.filter((n) => topIds.has(n.id));
+  // Рёбра только между узлами из topIds
   const filteredLinks = links.filter((l) => topIds.has(l.source) && topIds.has(l.target));
+
+  // После фильтрации рёбер некоторые узлы могут остаться без связей —
+  // оставляем только тех у кого есть ребро в filteredLinks
+  const activeIds = new Set<string>();
+  for (const l of filteredLinks) {
+    activeIds.add(l.source);
+    activeIds.add(l.target);
+  }
+  const filteredNodes = nodes.filter((n) => activeIds.has(n.id));
+
   return { nodes: filteredNodes, links: filteredLinks };
 }
 
@@ -158,7 +238,9 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
   const zoomFnRef = useRef<((delta: number) => void) | null>(null);
 
   // Settings
-  const [showLabels, setShowLabels] = useState(true);
+  type LabelMode = 'all' | 'selected' | 'none';
+  const [labelMode, setLabelMode] = useState<LabelMode>('selected');
+  const [showLabels] = useState(true); // kept for compat, not used directly
   const [showIndirect, setShowIndirect] = useState(true);
   const [showIsolated, setShowIsolated] = useState(true);
   const [highlightCycles, setHighlightCycles] = useState(true);
@@ -269,12 +351,28 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
       : visibleLinks.filter((l) => l.source === effectiveSelectedId || l.target === effectiveSelectedId);
     const allFinalNodes = result.graph_data.nodes.filter((n) => visibleSet.has(n.id));
 
-    // Ограничиваем до 500 узлов для стабильности браузера
+    // limitGraph возвращает только связанные узлы с рёбрами между ними
     const limited = limitGraph(allFinalNodes, finalLinks, 500);
-    const cycleKeys = highlightCycles ? findCycleEdgeKeysDirected(limited.links) : new Set<string>();
+    const limitedLinks = limited.links;
+
+    // Если showIsolated=true — добавляем настоящие изолированные узлы отдельно
+    // (те у кого нет рёбер вообще в finalLinks)
+    const limitedNodeIds = new Set(limited.nodes.map((n) => n.id));
+    const nodesWithFinalEdge = new Set<string>();
+    for (const l of finalLinks) {
+      nodesWithFinalEdge.add(l.source);
+      nodesWithFinalEdge.add(l.target);
+    }
+    const trulyIsolated = showIsolated
+      ? allFinalNodes.filter((n) => !nodesWithFinalEdge.has(n.id) && !limitedNodeIds.has(n.id))
+      : [];
+
+    const finalNodes = [...limited.nodes, ...trulyIsolated];
+
+    const cycleKeys = highlightCycles ? findCycleEdgeKeysDirected(limitedLinks) : new Set<string>();
 
     return {
-      graphData: { nodes: limited.nodes, links: limited.links } as AnalysisResult['graph_data'],
+      graphData: { nodes: finalNodes, links: limitedLinks } as AnalysisResult['graph_data'],
       graphDepth,
       isolatedCount,
       cycleKeys,
@@ -377,7 +475,7 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
           {focusedPath && (
             <div className="focus-indicator">
               <span>Фокус: {focusedPath.split(/[\\/]/).pop()}</span>
-              <button type="button" onClick={() => { setFocusedPath(null); setDepth('all'); setShowIndirect(true); }}>
+              <button type="button" onClick={() => { setFocusedPath(null); setDepth('all'); }}>
                 ✕ Сбросить
               </button>
             </div>
@@ -407,7 +505,7 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
               data={derived.graphData}
               selectedNodeId={effectiveSelectedId}
               onSelectNode={setSelectedId}
-              showLabels={showLabels}
+              labelMode={labelMode}
               nodeRadius={nodeRadius}
               cycleEdgeKeys={derived.cycleKeys}
               mclInflation={mclInflation}
@@ -580,10 +678,17 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
                 <option value="3">3 уровня</option>
               </select>
 
+              <div className="rp-section-label">Подписи узлов</div>
+              <select className="rp-select" value={labelMode}
+                onChange={(e) => setLabelMode(e.target.value as LabelMode)}>
+                <option value="all">Показывать все</option>
+                <option value="selected">Только выбранный и соседи</option>
+                <option value="none">Скрыть</option>
+              </select>
+
               <div className="rp-section-label">Видимость</div>
               <div className="rp-toggles">
                 {[
-                  { label: 'Показывать метки', sub: 'имена файлов на узлах', val: showLabels, set: setShowLabels },
                   { label: 'Косвенные связи', sub: 'пунктирные рёбра', val: showIndirect, set: setShowIndirect },
                   { label: 'Изолированные файлы', sub: 'без связей', val: showIsolated, set: setShowIsolated },
                   { label: 'Выделять циклы', sub: 'цветом', val: highlightCycles, set: setHighlightCycles },
@@ -656,16 +761,7 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
                   </div>
                 ))}
               </div>
-              {result && (
-                <>
-                  <div className="rp-section-label">Текущий репозиторий</div>
-                  <div className="rp-stats-table">
-                    <div className="rp-stats-row"><span>Репозиторий</span><span>{result.repository.name}</span></div>
-                    <div className="rp-stats-row"><span>Файлов</span><span>{result.statistics.total_files}</span></div>
-                    <div className="rp-stats-row rp-stats-row--last"><span>Связей</span><span>{result.statistics.total_dependencies}</span></div>
-                  </div>
-                </>
-              )}
+            
             </div>
           )}
 
