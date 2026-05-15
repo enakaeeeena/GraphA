@@ -13,6 +13,7 @@ class CalculatedMetrics:
     centrality: float
     fan_in: int
     fan_out: int
+    cycles: int  # число циклических рёбер затрагивающих этот файл
 
 
 class GraphBuilderService:
@@ -67,6 +68,39 @@ class GraphBuilderService:
         except Exception:
             centrality_map = {n: 0.0 for n in self.graph.nodes()}
 
+        # ── Поиск циклических зависимостей через SCC ──────────────────────
+        # nx.strongly_connected_components() реализует алгоритм Косараджу.
+        # Возвращает множества вершин — каждое множество это одна SCC.
+        # SCC размером > 1 означает что файлы в ней взаимно импортируют
+        # друг друга напрямую или через цепочку — это циклическая зависимость.
+        cyclic_nodes: set[str] = set()
+        cycle_edges: set[tuple[str, str]] = set()
+
+        for scc in nx.strongly_connected_components(self.graph):
+            if len(scc) > 1:
+                # Все узлы этой компоненты участвуют в цикле
+                cyclic_nodes.update(scc)
+                # Собираем рёбра внутри SCC — они и есть циклические
+                for u, v in self.graph.edges():
+                    if u in scc and v in scc:
+                        cycle_edges.add((u, v))
+            else:
+                # Самоцикл: единственный узел с ребром на себя
+                node = next(iter(scc))
+                if self.graph.has_edge(node, node):
+                    cyclic_nodes.add(node)
+                    cycle_edges.add((node, node))
+
+        # Сохраняем список циклических рёбер как атрибут — пригодится в to_d3()
+        self._cycle_edges = cycle_edges
+
+        # Считаем для каждого файла сколько циклических рёбер его затрагивают
+        cycle_count: dict[str, int] = {n: 0 for n in self.graph.nodes()}
+        for u, v in cycle_edges:
+            cycle_count[u] = cycle_count.get(u, 0) + 1
+            if u != v:
+                cycle_count[v] = cycle_count.get(v, 0) + 1
+
         metrics: dict[str, CalculatedMetrics] = {}
         for node in self.graph.nodes():
             fan_in = int(self.graph.in_degree(node))
@@ -78,6 +112,7 @@ class GraphBuilderService:
                 centrality=centrality,
                 fan_in=fan_in,
                 fan_out=fan_out,
+                cycles=cycle_count.get(node, 0),
             )
         return metrics
 
@@ -100,11 +135,13 @@ class GraphBuilderService:
                         "centrality": m.centrality,
                         "fan_in": m.fan_in,
                         "fan_out": m.fan_out,
+                        "cycles": m.cycles,
                     },
                 }
             )
 
         links = []
+        cycle_edges = getattr(self, "_cycle_edges", set())
         for source, target, edge_data in self.graph.edges(data=True):
             links.append(
                 {
@@ -112,10 +149,8 @@ class GraphBuilderService:
                     "target": target,
                     "dependency_type": edge_data.get("dependency_type", "unknown"),
                     "import_path": edge_data.get("import_path"),
+                    "is_cycle": (source, target) in cycle_edges,
                 }
             )
 
         return {"nodes": nodes, "links": links}
-
-
-

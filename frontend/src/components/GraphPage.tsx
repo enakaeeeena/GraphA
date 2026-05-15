@@ -67,96 +67,6 @@ function approxGraphDepth(adj: Map<string, Set<string>>): number {
   return bfs(bfs(nodes[0]!).far).max;
 }
 
-function findCycleEdgeKeysDirected(links: Array<{ source: string; target: string }>): Set<string> {
-  const g  = new Map<string, string[]>();
-  const rg = new Map<string, string[]>();
-  const nodes = new Set<string>();
-
-  const addE = (m: Map<string, string[]>, a: string, b: string) => {
-    if (!m.has(a)) m.set(a, []);
-    m.get(a)!.push(b);
-  };
-
-  // Самоциклы — файл импортирует сам себя
-  const selfCycles = new Set<string>();
-
-  for (const l of links) {
-    nodes.add(l.source);
-    nodes.add(l.target);
-    if (l.source === l.target) {
-      selfCycles.add(`${l.source}→${l.target}`);
-    } else {
-      addE(g,  l.source, l.target);
-      addE(rg, l.target, l.source);
-    }
-  }
-
-  // ── Итеративный DFS 1 — порядок завершения ────────────────────────────
-  const visited = new Set<string>();
-  const order: string[] = [];
-
-  for (const start of nodes) {
-    if (visited.has(start)) continue;
-    // Стек: [узел, итератор по соседям]
-    const stack: Array<{ v: string; neighbors: string[]; idx: number }> = [];
-    visited.add(start);
-    stack.push({ v: start, neighbors: g.get(start) ?? [], idx: 0 });
-
-    while (stack.length) {
-      const top = stack[stack.length - 1]!;
-      if (top.idx < top.neighbors.length) {
-        const u = top.neighbors[top.idx++]!;
-        if (!visited.has(u)) {
-          visited.add(u);
-          stack.push({ v: u, neighbors: g.get(u) ?? [], idx: 0 });
-        }
-      } else {
-        order.push(top.v);
-        stack.pop();
-      }
-    }
-  }
-
-  // ── Итеративный DFS 2 — разметка компонент ────────────────────────────
-  const comp = new Map<string, number>();
-  let cid = 0;
-
-  for (let i = order.length - 1; i >= 0; i--) {
-    const start = order[i]!;
-    if (comp.has(start)) continue;
-
-    const stack: string[] = [start];
-    while (stack.length) {
-      const v = stack.pop()!;
-      if (comp.has(v)) continue;
-      comp.set(v, cid);
-      for (const u of rg.get(v) ?? []) {
-        if (!comp.has(u)) stack.push(u);
-      }
-    }
-    cid++;
-  }
-
-  // ── Размер каждой компоненты ──────────────────────────────────────────
-  const compSize = new Map<number, number>();
-  for (const c of comp.values()) compSize.set(c, (compSize.get(c) ?? 0) + 1);
-
-  // ── Помечаем рёбра внутри нетривиальных SCC ──────────────────────────
-  const cycleKeys = new Set<string>(selfCycles); // самоциклы сразу добавляем
-
-  for (const l of links) {
-    if (l.source === l.target) continue; // уже добавлены
-    const cs = comp.get(l.source);
-    const ct = comp.get(l.target);
-    if (cs == null || ct == null) continue;
-    // Ребро в цикле если оба конца в одной SCC размером > 1
-    if (cs === ct && (compSize.get(cs) ?? 0) > 1) {
-      cycleKeys.add(`${l.source}→${l.target}`);
-    }
-  }
-
-  return cycleKeys;
-}
 // Ограничиваем граф до topN самых связанных узлов
 function limitGraph(
   nodes: Array<{ id: string }>,
@@ -296,150 +206,24 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
   }
 };
 
-  const handleExport = (mode: 'screen' | 'full', format: 'png' | 'svg') => {
-    const svgEl = graphWrapperRef.current?.querySelector('svg') as SVGSVGElement | null;
+  const handleExport = (scale: number) => {
+    const svgEl = graphWrapperRef.current?.querySelector('svg');
     if (!svgEl) return;
-    setExportMenuOpen(false);
-
-    const repoName = result?.repository.name ?? 'graph';
-
-    // ── SVG-экспорт (всегда весь граф) ──────────────────────────────────
-    if (format === 'svg') {
-      // Клонируем SVG чтобы не трогать оригинал
-      const clone = svgEl.cloneNode(true) as SVGSVGElement;
-      // Убираем transform с zoomLayer чтобы показать весь граф
-      const zoomLayer = clone.querySelector('g');
-      if (zoomLayer) zoomLayer.removeAttribute('transform');
-      // Вычисляем bbox всего содержимого
-      const allCircles = svgEl.querySelectorAll('circle');
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      allCircles.forEach(c => {
-        const cx = parseFloat(c.getAttribute('cx') || '0');
-        const cy = parseFloat(c.getAttribute('cy') || '0');
-        const r  = parseFloat(c.getAttribute('r')  || '0');
-        minX = Math.min(minX, cx - r - 20);
-        minY = Math.min(minY, cy - r - 20);
-        maxX = Math.max(maxX, cx + r + 20);
-        maxY = Math.max(maxY, cy + r + 20);
-      });
-      if (minX === Infinity) { minX = 0; minY = 0; maxX = 800; maxY = 600; }
-      clone.setAttribute('viewBox', `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
-      clone.setAttribute('width', String(maxX - minX));
-      clone.setAttribute('height', String(maxY - minY));
-      // Добавляем фон
-      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      bg.setAttribute('x', String(minX)); bg.setAttribute('y', String(minY));
-      bg.setAttribute('width', String(maxX - minX)); bg.setAttribute('height', String(maxY - minY));
-      bg.setAttribute('fill', '#fffaeb');
-      clone.insertBefore(bg, clone.firstChild);
-
-      const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `${repoName}_graph.svg`;
-      a.click();
-      return;
-    }
-
-    // ── PNG-экспорт ───────────────────────────────────────────────────────
-    const scale = 2; // всегда 2x для качества
-
-    if (mode === 'screen') {
-      // Берём размер контейнера (видимая область)
-      const wrapper = graphWrapperRef.current;
-      if (!wrapper) return;
-      const W = wrapper.clientWidth;
-      const H = wrapper.clientHeight;
-
-      // Получаем текущий viewBox SVG — он отражает текущий zoom/pan
-      const vb = svgEl.getAttribute('viewBox') ?? `0 0 ${W} ${H}`;
-
-      // Клонируем SVG с текущим transform (как есть на экране)
-      const clone = svgEl.cloneNode(true) as SVGSVGElement;
-      clone.setAttribute('width',  String(W));
-      clone.setAttribute('height', String(H));
-      clone.setAttribute('viewBox', vb);
-
-      // Добавляем фон
-      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      const [vx, vy, vw, vh] = vb.split(' ').map(Number);
-      bg.setAttribute('x', String(vx ?? 0)); bg.setAttribute('y', String(vy ?? 0));
-      bg.setAttribute('width', String(vw ?? W)); bg.setAttribute('height', String(vh ?? H));
-      bg.setAttribute('fill', '#fffaeb');
-      clone.insertBefore(bg, clone.firstChild);
-
-      const serialized = new XMLSerializer().serializeToString(clone);
-      const blob = new Blob([serialized], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width  = W * scale;
-        canvas.height = H * scale;
-        const ctx = canvas.getContext('2d')!;
-        ctx.fillStyle = '#fffaeb';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.scale(scale, scale);
-        ctx.drawImage(img, 0, 0, W, H);
-        URL.revokeObjectURL(url);
-        const a = document.createElement('a');
-        a.download = `${repoName}_screen.png`;
-        a.href = canvas.toDataURL('image/png');
-        a.click();
-      };
-      img.src = url;
-      return;
-    }
-
-    // mode === 'full' — весь граф
-    // Клонируем SVG и убираем трансформацию зума
-    const clone = svgEl.cloneNode(true) as SVGSVGElement;
-    const zoomLayer = clone.querySelector('g');
-    if (zoomLayer) zoomLayer.removeAttribute('transform');
-
-    // Вычисляем границы всех узлов по оригинальному SVG
-    const allCircles = svgEl.querySelectorAll('circle');
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    allCircles.forEach(c => {
-      const cx = parseFloat(c.getAttribute('cx') || '0');
-      const cy = parseFloat(c.getAttribute('cy') || '0');
-      const r  = parseFloat(c.getAttribute('r')  || '0');
-      minX = Math.min(minX, cx - r - 30);
-      minY = Math.min(minY, cy - r - 30);
-      maxX = Math.max(maxX, cx + r + 30);
-      maxY = Math.max(maxY, cy + r + 30);
-    });
-    if (minX === Infinity) { minX = 0; minY = 0; maxX = 800; maxY = 600; }
-
-    const W = maxX - minX;
-    const H = maxY - minY;
-    clone.setAttribute('viewBox', `${minX} ${minY} ${W} ${H}`);
-    clone.setAttribute('width',  String(W));
-    clone.setAttribute('height', String(H));
-
-    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bg.setAttribute('x', String(minX)); bg.setAttribute('y', String(minY));
-    bg.setAttribute('width', String(W)); bg.setAttribute('height', String(H));
-    bg.setAttribute('fill', '#fffaeb');
-    clone.insertBefore(bg, clone.firstChild);
-
-    const serialized = new XMLSerializer().serializeToString(clone);
-    const blob = new Blob([serialized], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svgEl)], { type: 'image/svg+xml;charset=utf-8' }));
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width  = W * scale;
-      canvas.height = H * scale;
+      canvas.width = img.width * scale; canvas.height = img.height * scale;
       const ctx = canvas.getContext('2d')!;
       ctx.fillStyle = '#fffaeb'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.scale(scale, scale); ctx.drawImage(img, 0, 0, W, H);
+      ctx.scale(scale, scale); ctx.drawImage(img, 0, 0);
       URL.revokeObjectURL(url);
-      const a = document.createElement('a');
-      a.download = `${repoName}_full.png`;
-      a.href = canvas.toDataURL('image/png'); a.click();
+      const link = document.createElement('a');
+      link.download = `${result?.repository.name ?? 'graph'}_${canvas.width}x${canvas.height}.png`;
+      link.href = canvas.toDataURL('image/png'); link.click();
     };
     img.src = url;
+    setExportMenuOpen(false);
   };
 
   const selectedFile: SourceFile | null = useMemo(
@@ -495,7 +279,15 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
 
     const finalNodes = [...limited.nodes, ...trulyIsolated];
 
-    const cycleKeys = highlightCycles ? findCycleEdgeKeysDirected(limitedLinks) : new Set<string>();
+    // Циклы вычислены на сервере — читаем is_cycle из рёбер
+    // highlightCycles — настройка пользователя, при false просто не передаём ключи
+    const cycleKeys = highlightCycles
+      ? new Set<string>(
+          result.graph_data.links
+            .filter((l) => (l as { is_cycle?: boolean }).is_cycle)
+            .map((l) => `${String(l.source)}→${String(l.target)}`)
+        )
+      : new Set<string>();
 
     return {
       graphData: { nodes: finalNodes, links: limitedLinks } as AnalysisResult['graph_data'],
@@ -561,16 +353,10 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
             <button className="topbar-export-btn" type="button" onClick={() => setExportMenuOpen((v) => !v)}>Экспорт →</button>
             {exportMenuOpen && (
               <div className="topbar-export-menu">
-                <div className="topbar-dropdown__label" style={{ marginBottom: 8 }}>Экспорт графа</div>
-                <button className="topbar-export-option" type="button" onClick={() => handleExport('full', 'svg')}>
-                  SVG — весь граф (векторный)
-                </button>
-                <button className="topbar-export-option" type="button" onClick={() => handleExport('full', 'png')}>
-                  PNG 2x — весь граф
-                </button>
-                <button className="topbar-export-option" type="button" onClick={() => handleExport('screen', 'png')}>
-                  PNG 2x — текущий экран
-                </button>
+                <div className="topbar-dropdown__label" style={{ marginBottom: 8 }}>Сохранить граф как PNG</div>
+                {[{ label: '1x — экранное', scale: 1 }, { label: '2x — HD', scale: 2 }, { label: '4x — Print', scale: 4 }].map(({ label, scale }) => (
+                  <button key={scale} className="topbar-export-option" type="button" onClick={() => handleExport(scale)}>{label}</button>
+                ))}
               </div>
             )}
           </div>
@@ -744,7 +530,7 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
                     <div className="rp-metric-pill"><div className="rp-metric-value">{selectedFile.metrics?.out_degree ?? 0}</div><div className="rp-metric-label">outdegree</div></div>
                     <div className="rp-metric-pill"><div className="rp-metric-value">{selectedFile.metrics?.in_degree ?? 0}</div><div className="rp-metric-label">indegree</div></div>
                     <div className="rp-metric-pill"><div className="rp-metric-value">{(selectedFile.metrics?.centrality ?? 0).toFixed(2)}</div><div className="rp-metric-label">centrality</div></div>
-                    <div className="rp-metric-pill"><div className="rp-metric-value">{derived?.cycleKeys ? [...derived.cycleKeys].filter((k) => { const [s,t] = k.split('→'); return s===selectedId||t===selectedId; }).length : 0}</div><div className="rp-metric-label">cycles</div></div>
+                    <div className="rp-metric-pill"><div className="rp-metric-value">{(selectedFile.metrics as { cycles?: number })?.cycles ?? 0}</div><div className="rp-metric-label">cycles</div></div>
                   </div>
 
                   {/* Циклические зависимости */}
