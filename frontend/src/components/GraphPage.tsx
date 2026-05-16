@@ -6,9 +6,10 @@ import { GraphTree } from './GraphTree.tsx';
 import { MetricsTab } from './MetricsTab';
 import { GraphCanvasHierarchical } from './GraphCanvasHierarchical';
 import { GraphCanvasRadial } from './GraphCanvasRadial';
+import { GraphALogo } from './GraphALogo';
 interface GraphPageProps {
   sessionId: string;
-  onBack: (repoUrl?: string) => void;
+  onBack: (repoUrl?: string) => void | Promise<void>;
 }
 
 type RightTab = 'file' | 'metrics' | 'settings' | 'about';
@@ -133,6 +134,7 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
   // Шапка
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [newRepoUrl, setNewRepoUrl] = useState('');
+  const [isStartingNew, setIsStartingNew] = useState(false);
 
   // Левая панель
   const [leftCollapsed, setLeftCollapsed] = useState(false);
@@ -158,6 +160,27 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
   const [depth, setDepth] = useState<GraphDepth>('all');
   const [nodeSize, setNodeSize] = useState<NodeSize>('M');
  const [graphMode, setGraphMode] = useState<'force' | 'hierarchy' | 'radial'>('force');
+  useEffect(() => {
+    setResult(null);
+    setError(null);
+    setSelectedId(null);
+    setFocusedPath(null);
+    setStatusText('Запускаем анализ…');
+  }, [sessionId]);
+
+  const handleOpenNewRepo = async () => {
+    const url = newRepoUrl.trim();
+    if (!url || isStartingNew) return;
+    setIsStartingNew(true);
+    setProjectMenuOpen(false);
+    try {
+      await onBack(url);
+      setNewRepoUrl('');
+    } finally {
+      setIsStartingNew(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false; let intervalId: number | undefined; let stopped = false;
     const stopPolling = () => { if (stopped) return; stopped = true; if (intervalId) window.clearInterval(intervalId); };
@@ -308,9 +331,9 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
       {/* ── ШАПКА ─────────────────────────────────────────────────────────── */}
       <div className="graph-topbar">
         <div className="topbar-left">
-          <div className="topbar-logo" title="GraphA">G</div>
+          <GraphALogo className="topbar-logo" size={40} variant="framed" />
           <button className="topbar-circle-btn" onClick={() => onBack()} title="Назад" type="button">←</button>
-          <button className="topbar-circle-btn" title="Сравнить версии (скоро)" type="button" disabled>⇄</button>
+
         </div>
 
         <div className="topbar-center">
@@ -325,9 +348,27 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
               <div className="topbar-dropdown__divider" />
               <div className="topbar-dropdown__label">Открыть другой репозиторий</div>
               <div className="topbar-dropdown__row">
-                <input className="topbar-dropdown__input" placeholder="https://github.com/user/repo.git" value={newRepoUrl} onChange={(e) => setNewRepoUrl(e.target.value)} />
-                <button className="topbar-dropdown__go" type="button" disabled={!newRepoUrl.trim()}
-                  onClick={() => { if (newRepoUrl.trim()) { setProjectMenuOpen(false); onBack(newRepoUrl.trim()); } }}>→</button>
+                <input
+                  className="topbar-dropdown__input"
+                  placeholder="https://github.com/user/repo.git"
+                  value={newRepoUrl}
+                  onChange={(e) => setNewRepoUrl(e.target.value)}
+                  disabled={isStartingNew}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void handleOpenNewRepo();
+                    }
+                  }}
+                />
+                <button
+                  className="topbar-dropdown__go"
+                  type="button"
+                  disabled={!newRepoUrl.trim() || isStartingNew}
+                  onClick={() => void handleOpenNewRepo()}
+                >
+                  {isStartingNew ? '…' : '→'}
+                </button>
               </div>
             </div>
           )}
@@ -418,7 +459,7 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
             </div>
           )}
 
-          {result && derived && graphMode === 'force' && (
+          {result && derived && !isStartingNew && graphMode === 'force' && (
             <GraphCanvas
               data={derived.graphData}
               selectedNodeId={effectiveSelectedId}
@@ -432,7 +473,7 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
               focusNodeId={focusedPath}
             />
           )}
-          {result && derived && graphMode === 'hierarchy' && (
+          {result && derived && !isStartingNew && graphMode === 'hierarchy' && (
             <GraphCanvasHierarchical
               data={derived.graphData}
               selectedNodeId={effectiveSelectedId}
@@ -442,7 +483,7 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
               mclIterations={mclIterations}
             />
           )}
-          {result && derived && graphMode === 'radial' && (
+          {result && derived && !isStartingNew && graphMode === 'radial' && (
   <GraphCanvasRadial
     data={derived.graphData}
     selectedNodeId={effectiveSelectedId}
@@ -452,7 +493,7 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
     mclIterations={mclIterations}
   />
 )}
-          {!result && (
+          {(!result || isStartingNew) && (
             <div className="graph-loading">
               <div className="graph-loading__title">{error ? 'Ошибка' : 'Загрузка'}</div>
               <div className="graph-loading__text">{error || statusText}</div>

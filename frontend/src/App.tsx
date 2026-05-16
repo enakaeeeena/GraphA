@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { GraphPage } from './components/GraphPage';
 import { LandingPage } from './components/LandingPage';
+import { apiClient } from './api/client';
 
 const SESSION_KEY = 'grapha_session';
 
@@ -9,6 +10,16 @@ interface SavedSession {
   repoUrl: string;
   repoName: string;
   savedAt: number;
+}
+
+function deriveRepoName(url: string): string {
+  try {
+    const trimmed = url.trim().replace(/\/+$/, '');
+    const last = trimmed.split('/').pop() ?? 'project';
+    return last.toLowerCase().endsWith('.git') ? last.slice(0, -4) : last;
+  } catch {
+    return 'project';
+  }
 }
 
 function App() {
@@ -45,12 +56,23 @@ function App() {
     setTimeout(() => setError(null), 5000);
   };
 
-  const handleNewAnalysis = (repoUrl?: string) => {
+  const handleNewAnalysis = async (repoUrl?: string) => {
     setError(null);
-    setSessionId(null);
-    setInitialUrl(repoUrl ?? '');
-    setView('landing');
-    // Не удаляем сессию сразу — пусть остаётся до новой
+
+    if (!repoUrl?.trim()) {
+      setSessionId(null);
+      setInitialUrl('');
+      setView('landing');
+      return;
+    }
+
+    const trimmed = repoUrl.trim();
+    try {
+      const res = await apiClient.analyzeRepository(trimmed);
+      handleStart(res.session_id, trimmed, deriveRepoName(trimmed));
+    } catch (err) {
+      handleError(err instanceof Error ? err.message : 'Ошибка при запуске анализа');
+    }
   };
 
   const handleStart = (sid: string, repoUrl: string, repoName: string) => {
@@ -72,22 +94,27 @@ function App() {
     }
   };
 
+  const errorToast = error ? (
+    <div className="toast-error">
+      <strong>Ошибка:</strong> {error}
+    </div>
+  ) : null;
+
   if (sessionId && view === 'graph') {
     return (
-      <GraphPage
-        sessionId={sessionId}
-        onBack={handleNewAnalysis}
-      />
+      <>
+        {errorToast}
+        <GraphPage
+          sessionId={sessionId}
+          onBack={handleNewAnalysis}
+        />
+      </>
     );
   }
 
   return (
     <div>
-      {error && (
-        <div className="toast-error">
-          <strong>Ошибка:</strong> {error}
-        </div>
-      )}
+      {errorToast}
       {view === 'landing' && (
         <LandingPage
           initialUrl={initialUrl}

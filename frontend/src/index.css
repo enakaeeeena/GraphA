@@ -903,15 +903,10 @@ code {
 }
 
 .topbar-logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 2px solid var(--ink);
-  display: grid;
-  place-items: center;
-  font-weight: 900;
-  font-size: 15px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
+  display: block;
 }
 
 /* Круглые кнопки (назад, сравнить, вкладки) */
