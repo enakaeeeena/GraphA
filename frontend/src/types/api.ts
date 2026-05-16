@@ -13,6 +13,7 @@ export interface FileMetrics {
   in_degree: number;
   out_degree: number;
   centrality: number;
+  cycles?: number;
 }
 
 export interface SourceFile {

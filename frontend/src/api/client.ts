@@ -45,6 +45,7 @@ type MetricsResponse = {
       centrality: number;
       fan_in: number;
       fan_out: number;
+      cycles?: number;
     };
   }>;
 };
@@ -239,6 +240,7 @@ const files = metrics.metrics.map((m) => ({
     in_degree: m.metrics?.fan_in ?? 0,
     out_degree: m.metrics?.fan_out ?? 0,
     centrality: m.metrics?.centrality ?? 0,
+    cycles: (m.metrics as { cycles?: number } | null)?.cycles ?? 0,
   },
 }));
 

@@ -8,6 +8,7 @@ from app.api.project_routes import router as project_router
 from app.config import API_PREFIX
 from app.database.base import Base
 from app.database.session import engine
+from app.database.migrations import apply_sqlite_patches
 
 # import ORM models so SQLAlchemy sees them in metadata
 from app import models  # noqa: F401
@@ -31,6 +32,7 @@ app.add_middleware(
 def on_startup() -> None:
     # For a diploma/research project SQLite is fine; for production use Alembic migrations.
     Base.metadata.create_all(bind=engine)
+    apply_sqlite_patches(engine)
 
 
 @app.get("/")

@@ -8,6 +8,7 @@ class FileMetricsRead(BaseModel):
     centrality: float
     fan_in: int
     fan_out: int
+    cycles: int = 0
 
     class Config:
         from_attributes = True

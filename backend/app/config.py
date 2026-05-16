@@ -26,6 +26,24 @@ IGNORE_PATTERNS: List[str] = [
     ".cache",
 ]
 
+# Каталоги, которые os.walk не заходит внутрь (критично для скорости на monorepo)
+IGNORE_DIR_NAMES: frozenset[str] = frozenset({
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    ".next",
+    "coverage",
+    ".cache",
+    "__pycache__",
+    ".yarn",
+    "vendor",
+    "out",
+    ".turbo",
+    "storybook-static",
+    "cypress",
+})
+
 # Настройки парсера
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 

@@ -167,7 +167,12 @@ class DependencyParser:
 
     # ── Публичный API ──────────────────────────────────────────────────────
 
-    def parse_file(self, file_path: Path, repo_base_path: Path) -> List[Dict]:
+    def parse_file(
+        self,
+        file_path: Path,
+        repo_base_path: Path,
+        content: bytes | None = None,
+    ) -> List[Dict]:
         """
         Парсит один файл и возвращает список зависимостей.
 
@@ -178,10 +183,11 @@ class DependencyParser:
             "resolved_path": Path | None,   # абсолютный путь на диске если разрешён
         }
         """
-        try:
-            content = file_path.read_bytes()
-        except Exception:
-            return []
+        if content is None:
+            try:
+                content = file_path.read_bytes()
+            except Exception:
+                return []
 
         ext = file_path.suffix.lower()
         language = _lang_for_ext(ext)
@@ -210,10 +216,9 @@ class DependencyParser:
         max_workers = min(8, len(files) or 1)
 
         def _parse_one(file_info: Dict):
-            deps = self.parse_file(
-                Path(file_info["absolute_path"]),
-                repo_base_path,
-            )
+            file_path = Path(file_info["absolute_path"])
+            cached = file_info.get("_content")
+            deps = self.parse_file(file_path, repo_base_path, content=cached)
             return file_info["file_path"], deps
 
         with ThreadPoolExecutor(max_workers=max_workers) as pool:

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import networkx as nx
+
+from app.graph.cycles import compute_cycle_edges
 
 
 @dataclass(frozen=True)
@@ -25,8 +27,10 @@ class GraphBuilderService:
     def build_graph(self, files: List[Dict], dependencies: Dict[str, List[Dict]]) -> nx.DiGraph:
         self.graph = nx.DiGraph()
 
+        path_index: dict[Path, str] = {}
         for file_info in files:
             file_path = file_info["file_path"]
+            path_index[Path(file_info["absolute_path"]).resolve()] = file_path
             self.graph.add_node(
                 file_path,
                 file_type=file_info["file_type"],
@@ -40,7 +44,7 @@ class GraphBuilderService:
                 resolved_path = dep.get("resolved_path")
                 if not resolved_path:
                     continue
-                target_file = self._find_file_in_graph(resolved_path, files)
+                target_file = path_index.get(Path(resolved_path).resolve())
                 if not target_file:
                     continue
                 self.graph.add_edge(
@@ -52,13 +56,6 @@ class GraphBuilderService:
 
         return self.graph
 
-    def _find_file_in_graph(self, resolved_path: Path, files: List[Dict]) -> Optional[str]:
-        resolved_path = resolved_path.resolve()
-        for file_info in files:
-            if Path(file_info["absolute_path"]).resolve() == resolved_path:
-                return file_info["file_path"]
-        return None
-
     def calculate_metrics(self) -> dict[str, CalculatedMetrics]:
         if not self.graph.nodes:
             return {}
@@ -68,30 +65,7 @@ class GraphBuilderService:
         except Exception:
             centrality_map = {n: 0.0 for n in self.graph.nodes()}
 
-        # ── Поиск циклических зависимостей через SCC ──────────────────────
-        # nx.strongly_connected_components() реализует алгоритм Косараджу.
-        # Возвращает множества вершин — каждое множество это одна SCC.
-        # SCC размером > 1 означает что файлы в ней взаимно импортируют
-        # друг друга напрямую или через цепочку — это циклическая зависимость.
-        cyclic_nodes: set[str] = set()
-        cycle_edges: set[tuple[str, str]] = set()
-
-        for scc in nx.strongly_connected_components(self.graph):
-            if len(scc) > 1:
-                # Все узлы этой компоненты участвуют в цикле
-                cyclic_nodes.update(scc)
-                # Собираем рёбра внутри SCC — они и есть циклические
-                for u, v in self.graph.edges():
-                    if u in scc and v in scc:
-                        cycle_edges.add((u, v))
-            else:
-                # Самоцикл: единственный узел с ребром на себя
-                node = next(iter(scc))
-                if self.graph.has_edge(node, node):
-                    cyclic_nodes.add(node)
-                    cycle_edges.add((node, node))
-
-        # Сохраняем список циклических рёбер как атрибут — пригодится в to_d3()
+        cycle_edges = compute_cycle_edges(self.graph)
         self._cycle_edges = cycle_edges
 
         # Считаем для каждого файла сколько циклических рёбер его затрагивают

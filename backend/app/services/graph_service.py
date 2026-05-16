@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import networkx as nx
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
+from app.graph.cycles import compute_cycle_edges
 from app.models.file_node import FileNode
 from app.models.dependency import DependencyEdge
 from app.repositories.analysis_run_repository import AnalysisRunRepository
@@ -41,6 +43,23 @@ class GraphService:
 
         id_to_path = {n.id: n.file_path for n in nodes}
 
+        # Старые снапшоты без is_cycle: колонка есть, но везде 0 — пересчитываем SCC
+        has_cycle_column = bool(edges) and hasattr(edges[0], "is_cycle")
+        stored_cycle_flags = [bool(e.is_cycle) for e in edges] if has_cycle_column else []
+        need_recompute = bool(edges) and (
+            not has_cycle_column or not any(stored_cycle_flags)
+        )
+        cycle_edges: set[tuple[str, str]] = set()
+        if need_recompute:
+            g = nx.DiGraph()
+            g.add_nodes_from(id_to_path.values())
+            for e in edges:
+                src = id_to_path.get(e.source_file_id)
+                tgt = id_to_path.get(e.target_file_id)
+                if src and tgt:
+                    g.add_edge(src, tgt)
+            cycle_edges = compute_cycle_edges(g)
+
         d3_nodes = []
         for n in nodes:
             d3_nodes.append(
@@ -56,22 +75,26 @@ class GraphService:
                         "centrality": n.metrics.centrality,
                         "fan_in": n.metrics.fan_in,
                         "fan_out": n.metrics.fan_out,
+                        "cycles": getattr(n.metrics, "cycles", 0),
                     },
                 }
             )
 
         d3_links = []
         for e in edges:
+            source = id_to_path.get(e.source_file_id, str(e.source_file_id))
+            target = id_to_path.get(e.target_file_id, str(e.target_file_id))
+            is_cycle = bool(getattr(e, "is_cycle", False))
+            if need_recompute:
+                is_cycle = (source, target) in cycle_edges
             d3_links.append(
                 {
-                    "source": id_to_path.get(e.source_file_id, str(e.source_file_id)),
-                    "target": id_to_path.get(e.target_file_id, str(e.target_file_id)),
+                    "source": source,
+                    "target": target,
                     "dependency_type": e.dependency_type,
                     "import_path": e.import_path,
+                    "is_cycle": is_cycle,
                 }
             )
 
         return run.id, {"nodes": d3_nodes, "links": d3_links}
-
-
-

@@ -5,10 +5,10 @@ from pathlib import Path
 from git import Repo
 from sqlalchemy.orm import Session
 
+from app.models.dependency import DependencyEdge
+from app.models.file_node import FileNode
+from app.models.metrics import FileMetrics
 from app.repositories.analysis_run_repository import AnalysisRunRepository
-from app.repositories.dependency_repository import DependencyRepository
-from app.repositories.file_repository import FileRepository
-from app.repositories.metrics_repository import MetricsRepository
 from app.repositories.project_repository import ProjectRepository
 from app.services.repo_loader import RepositoryLoader
 from app.graph.dependency_extractor import DependencyExtractor
@@ -20,9 +20,6 @@ class AnalysisService:
         self.db = db
         self.projects = ProjectRepository(db)
         self.runs = AnalysisRunRepository(db)
-        self.files = FileRepository(db)
-        self.edges = DependencyRepository(db)
-        self.metrics = MetricsRepository(db)
 
         self.repo_loader = RepositoryLoader()
         self.extractor = DependencyExtractor()
@@ -37,16 +34,15 @@ class AnalysisService:
         self.db.refresh(project)
         return project
 
-    def start_analysis(self, project_id: int, repo_url: str) -> int:
-        # Клонируем репозиторий и сразу получаем commit hash
+    def start_analysis(self, project_id: int, repo_url: str) -> tuple[int, Path]:
+        """Клонирует репозиторий, создаёт run. Возвращает (run_id, путь к клону)."""
         repo_path = self.repo_loader.clone_repository(repo_url)
         commit_hash = self._get_commit_hash(repo_path)
 
-        # Создаём запись о запуске — анализ запустит background task
         run = self.runs.create(project_id=project_id, commit_hash=commit_hash)
         self.db.commit()
 
-        return run.id
+        return run.id, repo_path
 
     def run_analysis(self, run_id: int, repo_url: str) -> None:
         """Fallback — клонирует если нет пути (для совместимости)."""
@@ -54,7 +50,7 @@ class AnalysisService:
         self.run_analysis_with_path(run_id, repo_path)
 
     def run_analysis_with_path(self, run_id: int, repo_path: Path) -> None:
-        """Основной анализ — принимает уже готовый путь без повторного клонирования."""
+        """Основной анализ — без повторного git clone/pull."""
         run = self.runs.get_by_id(run_id)
         if not run:
             return
@@ -66,44 +62,57 @@ class AnalysisService:
 
             self.graph_builder.build_graph(files_data, deps_data)
             metrics_map = self.graph_builder.calculate_metrics()
+            cycle_edges = getattr(self.graph_builder, "_cycle_edges", set())
 
-            # Сохраняем узлы пакетом
-            file_id_by_path: dict[str, int] = {}
-            for file_info in files_data:
-                node = self.files.create(
+            file_nodes = [
+                FileNode(
                     project_id=run.project_id,
                     analysis_run_id=run.id,
                     file_path=file_info["file_path"],
                     file_type=file_info["file_type"],
                     lines_count=int(file_info.get("sloc", 0)),
                 )
-                file_id_by_path[file_info["file_path"]] = node.id
+                for file_info in files_data
+            ]
+            self.db.add_all(file_nodes)
+            self.db.flush()
+            file_id_by_path = {node.file_path: node.id for node in file_nodes}
 
-            # Сохраняем рёбра
+            edge_rows: list[DependencyEdge] = []
             for source, target, edge_data in self.graph_builder.graph.edges(data=True):
                 source_id = file_id_by_path.get(source)
                 target_id = file_id_by_path.get(target)
                 if not source_id or not target_id:
                     continue
-                self.edges.create(
-                    source_file_id=source_id,
-                    target_file_id=target_id,
-                    dependency_type=edge_data.get("dependency_type", "unknown") or "unknown",
-                    import_path=edge_data.get("import_path"),
+                edge_rows.append(
+                    DependencyEdge(
+                        source_file_id=source_id,
+                        target_file_id=target_id,
+                        dependency_type=edge_data.get("dependency_type", "unknown") or "unknown",
+                        import_path=edge_data.get("import_path"),
+                        is_cycle=(source, target) in cycle_edges,
+                    )
                 )
+            if edge_rows:
+                self.db.add_all(edge_rows)
 
-            # Сохраняем метрики
+            metric_rows: list[FileMetrics] = []
             for file_path, m in metrics_map.items():
                 file_id = file_id_by_path.get(file_path)
                 if not file_id:
                     continue
-                self.metrics.upsert(
-                    file_id=file_id,
-                    degree=m.degree,
-                    centrality=m.centrality,
-                    fan_in=m.fan_in,
-                    fan_out=m.fan_out,
+                metric_rows.append(
+                    FileMetrics(
+                        file_id=file_id,
+                        degree=m.degree,
+                        centrality=m.centrality,
+                        fan_in=m.fan_in,
+                        fan_out=m.fan_out,
+                        cycles=m.cycles,
+                    )
                 )
+            if metric_rows:
+                self.db.add_all(metric_rows)
 
             self.runs.set_status(run, "completed", error=None)
             self.db.commit()

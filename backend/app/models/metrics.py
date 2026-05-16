@@ -22,6 +22,7 @@ class FileMetrics(Base):
     centrality: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     fan_in: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     fan_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cycles: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     file: Mapped["FileNode"] = relationship(back_populates="metrics")
 

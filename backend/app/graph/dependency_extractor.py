@@ -15,6 +15,8 @@ class DependencyExtractor:
     def extract(self, repo_path: Path) -> tuple[List[Dict], Dict[str, List[Dict]]]:
         files = self.scanner.scan_repository(repo_path)
         deps = self.parser.parse_files(files, repo_path)
+        for file_info in files:
+            file_info.pop("_content", None)
         return files, deps
 
 

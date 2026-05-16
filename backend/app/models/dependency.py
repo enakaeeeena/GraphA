@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -26,6 +26,7 @@ class DependencyEdge(Base):
 
     # Useful extra data
     import_path: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    is_cycle: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     source_file: Mapped["FileNode"] = relationship(
         back_populates="outgoing_edges",

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -10,10 +12,10 @@ from app.repositories.analysis_run_repository import AnalysisRunRepository
 
 router = APIRouter(tags=["analysis"])
 
-def _run_analysis_background(run_id: int, repo_url: str) -> None:
+def _run_analysis_background(run_id: int, repo_path: str) -> None:
     db = SessionLocal()
     try:
-        AnalysisService(db).run_analysis(run_id, repo_url)
+        AnalysisService(db).run_analysis_with_path(run_id, Path(repo_path))
     finally:
         db.close()
 
@@ -26,10 +28,10 @@ def analyze_project(project_id: int, background: BackgroundTasks, db: Session = 
         raise HTTPException(status_code=404, detail="Проект не найден")
 
     service = AnalysisService(db)
-    run_id = service.start_analysis(project_id=project.id, repo_url=project.repo_url)
+    run_id, repo_path = service.start_analysis(project_id=project.id, repo_url=project.repo_url)
 
-    # Run analysis in background with a separate DB session.
-    background.add_task(_run_analysis_background, run_id, project.repo_url)
+    # Фоновая задача использует уже клонированный репозиторий (без повторного git pull).
+    background.add_task(_run_analysis_background, run_id, str(repo_path))
 
     run_repo = AnalysisRunRepository(db)
     run = run_repo.get_by_id(run_id)
