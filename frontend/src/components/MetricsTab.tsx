@@ -17,6 +17,7 @@ interface Props {
     isolatedCount: number;
     cycleKeys: Set<string>;
   } | null;
+  selectedPath?: string | null;
   onSelectFile?: (path: string) => void;
 }
 
@@ -160,10 +161,42 @@ function Accordion({
   );
 }
 
+function fileRowClass(
+  fullPath: string,
+  selectedPath: string | null | undefined,
+  clickable: boolean,
+  extra?: string,
+) {
+  return [
+    'rp-top-row',
+    extra,
+    clickable ? 'rp-top-row--clickable' : '',
+    selectedPath === fullPath ? 'rp-top-row--active' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function fileRowHandlers(fullPath: string, onSelect?: (path: string) => void) {
+  return {
+    role: onSelect ? ('button' as const) : undefined,
+    tabIndex: onSelect ? 0 : undefined,
+    onClick: () => onSelect?.(fullPath),
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (!onSelect) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onSelect(fullPath);
+      }
+    },
+  };
+}
+
 // ── Список топ-файлов ───────────────────────────────────────────────────────
 
-function TopList({ items, onSelect }: {
+function TopList({ items, selectedPath, onSelect }: {
   items: Array<{ name: string; fullPath: string; links: number }>;
+  selectedPath?: string | null;
   onSelect?: (path: string) => void;
 }) {
   if (!items.length) return <div className="rp-empty-value">нет данных</div>;
@@ -172,10 +205,9 @@ function TopList({ items, onSelect }: {
       {items.map(({ name, fullPath, links }, i) => (
         <div
           key={fullPath}
-          className="rp-top-row"
-          style={{ cursor: onSelect ? 'pointer' : 'default' }}
-          onClick={() => onSelect?.(fullPath)}
+          className={fileRowClass(fullPath, selectedPath, Boolean(onSelect))}
           title={fullPath}
+          {...fileRowHandlers(fullPath, onSelect)}
         >
           <span className="rp-top-rank">{i + 1}</span>
           <span className="rp-top-name">{name}</span>
@@ -188,8 +220,9 @@ function TopList({ items, onSelect }: {
   );
 }
 
-function CentralityList({ items, onSelect }: {
+function CentralityList({ items, selectedPath, onSelect }: {
   items: Array<{ name: string; fullPath: string; centrality: number; degree: number }>;
+  selectedPath?: string | null;
   onSelect?: (path: string) => void;
 }) {
   if (!items.length) return <div className="rp-empty-value">нет данных</div>;
@@ -199,10 +232,14 @@ function CentralityList({ items, onSelect }: {
       {items.map(({ name, fullPath, centrality, degree }, i) => (
         <div
           key={fullPath}
-          className="rp-top-row"
-          style={{ cursor: onSelect ? 'pointer' : 'default', flexDirection: 'column', alignItems: 'flex-start', gap: 5, paddingBottom: 8 }}
-          onClick={() => onSelect?.(fullPath)}
+          className={fileRowClass(
+            fullPath,
+            selectedPath,
+            Boolean(onSelect),
+            'rp-top-row--centrality',
+          )}
           title={fullPath}
+          {...fileRowHandlers(fullPath, onSelect)}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
             <span className="rp-top-rank">{i + 1}</span>
@@ -223,7 +260,7 @@ function CentralityList({ items, onSelect }: {
 
 // ── Основной компонент ──────────────────────────────────────────────────────
 
-export function MetricsTab({ result, derived, onSelectFile }: Props) {
+export function MetricsTab({ result, derived, selectedPath, onSelectFile }: Props) {
   if (!result || !derived) {
     return (
       <div className="rp-body">
@@ -251,18 +288,18 @@ export function MetricsTab({ result, derived, onSelectFile }: Props) {
 
       {/* Самые связанные файлы */}
       <Accordion title="Самые связанные файлы">
-        <TopList items={topByDegree} onSelect={onSelectFile} />
+        <TopList items={topByDegree} selectedPath={selectedPath} onSelect={onSelectFile} />
       </Accordion>
 
       {/* Чаще всего импортируют */}
       <Accordion title="Чаще всего импортируют">
-        <TopList items={topByInDegree} onSelect={onSelectFile} />
+        <TopList items={topByInDegree} selectedPath={selectedPath} onSelect={onSelectFile} />
       </Accordion>
 
       {/* Ключевые файлы по centrality — только если есть ненулевые значения */}
       {topByCentrality.length > 0 && (
-        <Accordion title="Ключевые файлы по централности">
-          <CentralityList items={topByCentrality} onSelect={onSelectFile} />
+        <Accordion title="Ключевые файлы по централности" defaultOpen>
+          <CentralityList items={topByCentrality} selectedPath={selectedPath} onSelect={onSelectFile} />
         </Accordion>
       )}
 

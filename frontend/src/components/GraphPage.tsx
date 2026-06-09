@@ -229,6 +229,12 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
   }
 };
 
+  const handleSelectFileFromMetrics = (path: string) => {
+    setFocusedPath(null);
+    setDepth('all');
+    setSelectedId(path);
+  };
+
   const handleExport = (scale: number) => {
     const svgEl = graphWrapperRef.current?.querySelector('svg');
     if (!svgEl) return;
@@ -612,7 +618,12 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
           )}
 
           {tab === 'metrics' && (
-            <MetricsTab result={result} derived={derived} />
+            <MetricsTab
+              result={result}
+              derived={derived}
+              selectedPath={selectedId}
+              onSelectFile={handleSelectFileFromMetrics}
+            />
           )}
 
           {tab === 'settings' && (

@@ -1818,6 +1818,33 @@ code {
   border: 1px solid rgba(61, 50, 95, 0.1);
 }
 
+.rp-top-row--centrality {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding-bottom: 8px;
+}
+
+.rp-top-row--clickable {
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.rp-top-row--clickable:hover {
+  background: rgba(128, 116, 164, 0.12);
+  border-color: rgba(128, 116, 164, 0.35);
+}
+
+.rp-top-row--clickable:focus-visible {
+  outline: 2px solid rgba(128, 116, 164, 0.55);
+  outline-offset: 2px;
+}
+
+.rp-top-row--active {
+  background: rgba(128, 116, 164, 0.2);
+  border-color: rgba(128, 116, 164, 0.55);
+}
+
 .rp-top-rank {
   font-size: 11px;
   font-weight: 900;
