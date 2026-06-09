@@ -48,6 +48,7 @@ export function GraphCanvasHierarchical({
   const svgRef     = useRef<SVGSVGElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const zoomBehRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const nodePositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
   const [currentScale, setCurrentScale] = useState(0.9);
   const [viewSize, setViewSize] = useState({ w: 800, h: 500 });
@@ -191,12 +192,14 @@ export function GraphCanvasHierarchical({
     }
 
     const nodeLayer = zoomLayer.append('g');
+    const nodePositions = new Map<string, { x: number; y: number }>();
     for (const nodeId of g.nodes()) {
       const pos = g.node(nodeId);
       if (!pos || pos.x == null) continue;
 
       const x = pos.x - CARD_W / 2;
       const y = pos.y - CARD_H / 2;
+      nodePositions.set(nodeId, { x: pos.x, y: pos.y });
       const isSel = nodeId === selectedNodeId;
       const color = clusterColor(clusterMap.get(nodeId) ?? 0);
       const ext = extOf(nodeId);
@@ -247,6 +250,7 @@ export function GraphCanvasHierarchical({
         .text(dir.length > 24 ? dir.slice(0, 22) + '…' : dir);
     }
 
+    nodePositionsRef.current = nodePositions;
     setLayoutReady(true);
 
     const ro = new ResizeObserver(() => {
@@ -259,6 +263,29 @@ export function GraphCanvasHierarchical({
     return () => { ro.disconnect(); setLayoutReady(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, cycleEdgeKeys, clusterMap]);
+
+  // Фокус на выбранный узел в иерархическом виде
+  useEffect(() => {
+    if (!selectedNodeId) return;
+    const svgEl = svgRef.current;
+    const wrapperEl = wrapperRef.current;
+    const zoom = zoomBehRef.current;
+    if (!svgEl || !wrapperEl || !zoom) return;
+
+    const nodePos = nodePositionsRef.current.get(selectedNodeId);
+    if (!nodePos) return;
+
+    const W = wrapperEl.clientWidth;
+    const H = wrapperEl.clientHeight;
+    const scale = 2;
+    const tx = W / 2 - nodePos.x * scale;
+    const ty = H / 2 - nodePos.y * scale;
+
+    d3.select(svgEl).transition().duration(600).call(
+      (zoom as unknown as d3.ZoomBehavior<SVGSVGElement, unknown>).transform,
+      d3.zoomIdentity.translate(tx, ty).scale(scale),
+    );
+  }, [selectedNodeId]);
 
   return (
     <div ref={wrapperRef} style={{ position: 'relative', width: '100%', height: '100%' }}>

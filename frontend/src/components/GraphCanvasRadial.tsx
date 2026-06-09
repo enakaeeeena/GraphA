@@ -38,6 +38,7 @@ export function GraphCanvasRadial({
   const svgRef     = useRef<SVGSVGElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const zoomBehRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const nodePositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
   const [currentScale, setCurrentScale] = useState(1);
   const [viewSize, setViewSize] = useState({ w: 800, h: 600 });
@@ -255,10 +256,12 @@ export function GraphCanvasRadial({
     // Узлы и подписи
     const nodeLayer  = zoomLayer.append('g');
     const labelLayer = zoomLayer.append('g').style('pointer-events', 'none');
+    const nodePositions = new Map<string, { x: number; y: number }>();
 
     for (const [nodeId, pos] of ringLayout.positions) {
       const x = pos.x + cx;
       const y = pos.y + cy;
+      nodePositions.set(nodeId, { x, y });
       const isSel = nodeId === selectedNodeId;
       const isCenter = nodeId === centerId;
       const color = clusterColor(clusterMap.get(nodeId) ?? 0);
@@ -298,6 +301,7 @@ export function GraphCanvasRadial({
         .text(shortName(nodeId));
     }
 
+    nodePositionsRef.current = nodePositions;
     setLayoutReady(true);
 
     const ro = new ResizeObserver(() => {
@@ -321,6 +325,29 @@ export function GraphCanvasRadial({
         return id === selectedNodeId ? '#fff' : clusterColor(clusterMap.get(id) ?? 0) + '33';
       });
   }, [selectedNodeId, clusterMap]);
+
+  // Фокус на выбранный узел в радиальном виде
+  useEffect(() => {
+    if (!selectedNodeId) return;
+    const svgEl = svgRef.current;
+    const wrapperEl = wrapperRef.current;
+    const zoom = zoomBehRef.current;
+    if (!svgEl || !wrapperEl || !zoom) return;
+
+    const nodePos = nodePositionsRef.current.get(selectedNodeId);
+    if (!nodePos) return;
+
+    const W = wrapperEl.clientWidth;
+    const H = wrapperEl.clientHeight;
+    const scale = 1.8;
+    const tx = W / 2 - nodePos.x * scale;
+    const ty = H / 2 - nodePos.y * scale;
+
+    d3.select(svgEl).transition().duration(600).call(
+      (zoom as unknown as d3.ZoomBehavior<SVGSVGElement, unknown>).transform,
+      d3.zoomIdentity.translate(tx, ty).scale(scale),
+    );
+  }, [selectedNodeId]);
 
   return (
     <div ref={wrapperRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
