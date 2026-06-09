@@ -307,9 +307,9 @@ export function GraphCanvas({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNodeId, neighborSet, labelMode]);
 
-  // ── Телепортация к узлу ───────────────────────────────────────────────────
-  useEffect(() => {
-    if (!focusNodeId) return;
+  // ── Фокус на выбранный узел ───────────────────────────────────────────────
+  const focusOnNode = (nodeId: string | null) => {
+    if (!nodeId) return;
     const svgEl = svgRef.current;
     const wrapperEl = wrapperRef.current;
     const zoom = zoomBehRef.current;
@@ -323,17 +323,27 @@ export function GraphCanvas({
       );
     };
 
-    const node = nodesRef.current.find((n) => n.id === focusNodeId);
+    const node = nodesRef.current.find((n) => n.id === nodeId);
     if (node?.x != null && node?.y != null) {
       tryZoom(node.x, node.y);
     } else {
       const timer = setTimeout(() => {
-        const n2 = nodesRef.current.find((n) => n.id === focusNodeId);
+        const n2 = nodesRef.current.find((n) => n.id === nodeId);
         if (n2?.x != null && n2?.y != null) tryZoom(n2.x, n2.y);
       }, 900);
       return () => clearTimeout(timer);
     }
+  };
+
+  // Фокус при явном focusNodeId (для compatibility)
+  useEffect(() => {
+    focusOnNode(focusNodeId ?? null);
   }, [focusNodeId]);
+
+  // Фокус при клике на узел (selectedNodeId)
+  useEffect(() => {
+    focusOnNode(selectedNodeId);
+  }, [selectedNodeId]);
 
   return (
     <div className="graph-canvas" ref={wrapperRef} style={{ position: 'relative' }}>

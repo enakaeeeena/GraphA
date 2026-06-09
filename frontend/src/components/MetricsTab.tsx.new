@@ -346,15 +346,15 @@ export function MetricsTab({ result, derived, onSelectFile }: Props) {
               </div>
             </div>
           </div>
-          <div className="rp-problem-card">
-            <span className="rp-problem-dot rp-problem-dot--yellow" />
-            <div>
-              <div className="rp-problem-title">Динамические зависимости</div>
-              <div className="rp-problem-sub">
-                {dynamicCount ? `найдено в ${dynamicCount} файлах` : 'не найдено'}
-              </div>
-            </div>
-          </div>
+           <div className="rp-problem-card">
+             <span className="rp-problem-dot rp-problem-dot--yellow" />
+             <div>
+               <div className="rp-problem-title">Динамические зависимости</div>
+               <div className="rp-problem-sub">
+                 {dynamicCount ? `найдено в ${dynamicCount} файлах` : 'не найдено'}
+               </div>
+             </div>
+           </div>
           {/* <div className="rp-problem-card">
             <span className="rp-problem-dot rp-problem-dot--green" />
             <div>
