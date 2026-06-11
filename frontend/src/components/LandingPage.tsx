@@ -401,9 +401,10 @@ export function LandingPage({ initialUrl = '', onStart, onError }: LandingPagePr
                 transition: 'border-color 0.15s',
               }}
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 12l2-1.5 6-3.5 8 4-6 3.5-2 1.5M3 12L2 21 12 16 22 21 21 12"/>
-              </svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M22 2L11 13" stroke="#3d325f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#3d325f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+</svg>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 800 }}>Telegram</div>
                 <div style={{ fontSize: 13, opacity: 0.55 }}>@enakaeeeena</div>
@@ -419,10 +420,10 @@ export function LandingPage({ initialUrl = '', onStart, onError }: LandingPagePr
                 textDecoration: 'none', color: '#3d325f',
               }}
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="4" width="20" height="16" rx="2"/>
-                <path d="M2 6l10 7 10-7"/>
-              </svg>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="2" y="4" width="20" height="16" rx="2" stroke="#3d325f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  <path d="M2 7L12 13L22 7" stroke="#3d325f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+</svg>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 800 }}>Email</div>
                 <div style={{ fontSize: 13, opacity: 0.55 }}>enakaena@mail.ru</div>

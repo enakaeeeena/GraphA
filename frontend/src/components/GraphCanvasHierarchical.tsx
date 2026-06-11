@@ -45,14 +45,14 @@ export function GraphCanvasHierarchical({
   data, selectedNodeId, onSelectNode, cycleEdgeKeys,
   mclInflation = 2, mclIterations = 12,
 }: Props) {
-  const svgRef     = useRef<SVGSVGElement | null>(null);
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const zoomBehRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const svgRef          = useRef<SVGSVGElement | null>(null);
+  const wrapperRef      = useRef<HTMLDivElement | null>(null);
+  const zoomBehRef      = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const nodePositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
+  const [tooltip, setTooltip]           = useState<{ x: number; y: number; text: string } | null>(null);
   const [currentScale, setCurrentScale] = useState(0.9);
-  const [viewSize, setViewSize] = useState({ w: 800, h: 500 });
-  const [layoutReady, setLayoutReady] = useState(false);
+  const [viewSize, setViewSize]         = useState({ w: 800, h: 500 });
+  const [layoutReady, setLayoutReady]   = useState(false);
 
   const clusterMap = useMemo(() => {
     const nodeIds = data.nodes.map((n) => n.id);
@@ -62,14 +62,13 @@ export function GraphCanvasHierarchical({
 
   const handleZoom = (delta: number) => {
     const svgEl = svgRef.current;
-    const zoom = zoomBehRef.current;
+    const zoom  = zoomBehRef.current;
     if (!svgEl || !zoom) return;
     d3.select(svgEl).transition().duration(250).call(
       (zoom as unknown as d3.ZoomBehavior<SVGSVGElement, unknown>).scaleBy, delta,
     );
   };
 
-  // renderMini — возвращает MiniCoords для синхронизации viewport
   const renderMini = useCallback((
     mini: d3.Selection<SVGSVGElement, unknown, null, undefined>,
     W: number,
@@ -85,11 +84,11 @@ export function GraphCanvasHierarchical({
     }
     try { dagreLib.layout(g2); } catch { return { fitSc: 1, ox: 0, oy: 0 }; }
 
-    const gW = g2.graph().width ?? 1;
-    const gH = g2.graph().height ?? 1;
+    const gW   = g2.graph().width  ?? 1;
+    const gH   = g2.graph().height ?? 1;
     const fitSc = Math.min((W - 8) / gW, (H - 8) / gH) * 0.9;
-    const ox = (W - gW * fitSc) / 2;
-    const oy = (H - gH * fitSc) / 2;
+    const ox   = (W - gW * fitSc) / 2;
+    const oy   = (H - gH * fitSc) / 2;
 
     for (const e of g2.edges()) {
       const pts: Array<{ x: number; y: number }> = g2.edge(e)?.points ?? [];
@@ -115,8 +114,9 @@ export function GraphCanvasHierarchical({
     return { fitSc, ox, oy };
   }, [data, clusterMap, selectedNodeId]);
 
+  // ── Основной useEffect — строит граф, НЕ зависит от selectedNodeId ────────
   useEffect(() => {
-    const svgEl = svgRef.current;
+    const svgEl    = svgRef.current;
     const wrapperEl = wrapperRef.current;
     if (!svgEl || !wrapperEl) return;
 
@@ -134,7 +134,7 @@ export function GraphCanvasHierarchical({
     }
     try { dagreLib.layout(g); } catch (e) { console.error('dagre error', e); return; }
 
-    const graphW = g.graph().width ?? W;
+    const graphW = g.graph().width  ?? W;
     const graphH = g.graph().height ?? H;
 
     const svg = d3.select(svgEl);
@@ -193,6 +193,7 @@ export function GraphCanvasHierarchical({
 
     const nodeLayer = zoomLayer.append('g');
     const nodePositions = new Map<string, { x: number; y: number }>();
+
     for (const nodeId of g.nodes()) {
       const pos = g.node(nodeId);
       if (!pos || pos.x == null) continue;
@@ -200,14 +201,16 @@ export function GraphCanvasHierarchical({
       const x = pos.x - CARD_W / 2;
       const y = pos.y - CARD_H / 2;
       nodePositions.set(nodeId, { x: pos.x, y: pos.y });
-      const isSel = nodeId === selectedNodeId;
-      const color = clusterColor(clusterMap.get(nodeId) ?? 0);
-      const ext = extOf(nodeId);
+
+      // isSel убран — стиль выбора управляется отдельным useEffect
+      const color     = clusterColor(clusterMap.get(nodeId) ?? 0);
+      const ext       = extOf(nodeId);
       const iconColor = fileColor(ext);
-      const name = shortName(nodeId);
-      const dir  = dirName(nodeId);
+      const name      = shortName(nodeId);
+      const dir       = dirName(nodeId);
 
       const cg = nodeLayer.append('g')
+        .datum(nodeId)                              // ← datum для поиска по selectedNodeId
         .attr('transform', `translate(${x},${y})`)
         .style('cursor', 'pointer')
         .on('click', () => onSelectNode(nodeId))
@@ -218,16 +221,18 @@ export function GraphCanvasHierarchical({
         })
         .on('mouseleave', function() {
           setTooltip(null);
+          // восстанавливаем стиль — проверяем текущий selectedNodeId через ref не нужен,
+          // отдельный useEffect сам восстановит правильное состояние
           d3.select(this).select('rect.cbg')
-            .attr('stroke-width', isSel ? 2 : 1)
-            .attr('stroke', isSel ? color : `${color}55`);
+            .attr('stroke-width', 1)
+            .attr('stroke', `${color}55`);
         });
 
       cg.append('rect').attr('class', 'cbg')
         .attr('width', CARD_W).attr('height', CARD_H).attr('rx', 10)
-        .attr('fill', isSel ? `${color}18` : 'rgba(255,255,255,0.93)')
-        .attr('stroke', isSel ? color : `${color}55`)
-        .attr('stroke-width', isSel ? 2 : 1)
+        .attr('fill', 'rgba(255,255,255,0.93)')    // нейтральный начальный стиль
+        .attr('stroke', `${color}55`)
+        .attr('stroke-width', 1)
         .attr('filter', 'url(#cshadow)');
 
       cg.append('rect').attr('width', 4).attr('height', CARD_H).attr('rx', 2)
@@ -240,7 +245,8 @@ export function GraphCanvasHierarchical({
         .attr('fill', 'none').attr('stroke', 'rgba(255,255,255,0.55)').attr('stroke-width', 1);
 
       cg.append('text').attr('x', 34).attr('y', 20)
-        .attr('font-size', 11.5).attr('font-weight', isSel ? 800 : 700)
+        .attr('class', 'node-label')
+        .attr('font-size', 11.5).attr('font-weight', 700)
         .attr('fill', INK).attr('dominant-baseline', 'middle')
         .text(name.length > 19 ? name.slice(0, 17) + '…' : name);
 
@@ -264,24 +270,60 @@ export function GraphCanvasHierarchical({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, cycleEdgeKeys, clusterMap]);
 
-  // Фокус на выбранный узел в иерархическом виде
+  // ── Лёгкий useEffect — только перекрашивает выбранный узел ───────────────
+  useEffect(() => {
+    const svgEl = svgRef.current;
+    if (!svgEl) return;
+    const svg = d3.select(svgEl);
+
+    // сбрасываем все карточки в нейтральный стиль
+    svg.selectAll<SVGGElement, string>('g[transform]')
+      .filter(function() { return typeof (this as SVGGElement & { __data__?: unknown }).__data__ === 'string'; })
+      .each(function() {
+        const nodeId = d3.select<SVGGElement, string>(this).datum();
+        const color  = clusterColor(clusterMap.get(nodeId) ?? 0);
+        d3.select(this).select('rect.cbg')
+          .attr('fill', 'rgba(255,255,255,0.93)')
+          .attr('stroke', `${color}55`)
+          .attr('stroke-width', 1);
+        d3.select(this).select('text.node-label').attr('font-weight', 700);
+      });
+
+    // подсвечиваем выбранный
+    if (!selectedNodeId) return;
+    svg.selectAll<SVGGElement, string>('g[transform]')
+      .filter(function() {
+        return d3.select<SVGGElement, string>(this).datum() === selectedNodeId;
+      })
+      .each(function() {
+        const color = clusterColor(clusterMap.get(selectedNodeId) ?? 0);
+        d3.select(this).select('rect.cbg')
+          .attr('fill', `${color}18`)
+          .attr('stroke', color)
+          .attr('stroke-width', 2);
+        d3.select(this).select('text.node-label').attr('font-weight', 800);
+      });
+  }, [selectedNodeId, clusterMap]);
+
+  // ── Фокус на выбранный узел — без анимации, без тяжёлого зума ────────────
   useEffect(() => {
     if (!selectedNodeId) return;
-    const svgEl = svgRef.current;
+    const svgEl    = svgRef.current;
     const wrapperEl = wrapperRef.current;
-    const zoom = zoomBehRef.current;
+    const zoom     = zoomBehRef.current;
     if (!svgEl || !wrapperEl || !zoom) return;
 
     const nodePos = nodePositionsRef.current.get(selectedNodeId);
     if (!nodePos) return;
 
-    const W = wrapperEl.clientWidth;
-    const H = wrapperEl.clientHeight;
-    const scale = 2;
-    const tx = W / 2 - nodePos.x * scale;
-    const ty = H / 2 - nodePos.y * scale;
+    const W     = wrapperEl.clientWidth;
+    const H     = wrapperEl.clientHeight;
+    const scale = 1.4;                             // ← снижено с 2 до 1.4
+    const tx    = W / 2 - nodePos.x * scale;
+    const ty    = H / 2 - nodePos.y * scale;
 
-    d3.select(svgEl).transition().duration(600).call(
+    // убрана .transition().duration(600) — мгновенный переход без лагов
+    d3.select(svgEl).call(
       (zoom as unknown as d3.ZoomBehavior<SVGSVGElement, unknown>).transform,
       d3.zoomIdentity.translate(tx, ty).scale(scale),
     );
