@@ -147,8 +147,6 @@ class DependencyParser:
       - dynamic import()
       - CommonJS require()
 
-    Преимущество перед regex: AST-парсер понимает структуру кода и не
-    находит импорты внутри комментариев или строковых литералов.
 
     Если tree-sitter не установлен — автоматически переключается на
     резервный regex-парсинг с предупреждением.
@@ -244,10 +242,6 @@ class DependencyParser:
         """
         Строит AST и обходит его через Query.
 
-        Новый API tree-sitter (>= 0.24):
-        - Query(language, pattern) вместо language.query(pattern)
-        - query.matches(node) вместо query.captures(node)
-        - matches возвращает список (pattern_index, {capture_name: [nodes]})
         """
         parser = TSParser(language)
         tree = parser.parse(content)

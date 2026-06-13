@@ -143,7 +143,7 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
   const [focusedPath, setFocusedPath] = useState<string | null>(null);
 
   // Экспорт
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+ 
   const graphWrapperRef = useRef<HTMLDivElement>(null);
 
   // Функция зума из GraphCanvas
@@ -152,7 +152,7 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
   // Settings
   type LabelMode = 'all' | 'selected' | 'none';
   const [labelMode, setLabelMode] = useState<LabelMode>('selected');
-  const [showLabels] = useState(true); // kept for compat, not used directly
+ 
   const [showIndirect, setShowIndirect] = useState(true);
   const [showIsolated, setShowIsolated] = useState(true);
   const [highlightCycles, setHighlightCycles] = useState(true);
@@ -235,25 +235,37 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
     setSelectedId(path);
   };
 
-  const handleExport = (scale: number) => {
-    const svgEl = graphWrapperRef.current?.querySelector('svg');
-    if (!svgEl) return;
-    const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svgEl)], { type: 'image/svg+xml;charset=utf-8' }));
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width * scale; canvas.height = img.height * scale;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = '#fffaeb'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.scale(scale, scale); ctx.drawImage(img, 0, 0);
-      URL.revokeObjectURL(url);
-      const link = document.createElement('a');
-      link.download = `${result?.repository.name ?? 'graph'}_${canvas.width}x${canvas.height}.png`;
-      link.href = canvas.toDataURL('image/png'); link.click();
-    };
-    img.src = url;
-    setExportMenuOpen(false);
-  };
+  const handleExport = () => {
+  const svgEl = graphWrapperRef.current?.querySelector('svg');
+  if (!svgEl) return;
+
+  // Клонируем SVG чтобы не трогать оригинал
+  const clone = svgEl.cloneNode(true) as SVGSVGElement;
+
+  // Берём реальные размеры
+  const bbox = svgEl.getBoundingClientRect();
+  clone.setAttribute('width', String(bbox.width));
+  clone.setAttribute('height', String(bbox.height));
+
+  // Добавляем белый фон
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  bg.setAttribute('width', '100%');
+  bg.setAttribute('height', '100%');
+  bg.setAttribute('fill', '#fffaeb');
+  clone.insertBefore(bg, clone.firstChild);
+
+  const blob = new Blob(
+    [new XMLSerializer().serializeToString(clone)],
+    { type: 'image/svg+xml;charset=utf-8' }
+  );
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = `${result?.repository.name ?? 'graph'}.svg`;
+  link.href = url;
+  link.click();
+  URL.revokeObjectURL(url);
+  
+};
 
   const selectedFile: SourceFile | null = useMemo(
     () => (selectedId ? result?.files.find((f) => f.file_path === selectedId) ?? null : null),
@@ -397,16 +409,10 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
           <button className={`topbar-circle-btn ${tab === 'settings' ? 'topbar-circle-btn--active' : ''}`} onClick={() => setTab('settings')} title="Настройки" type="button">⚙</button>
           <button className={`topbar-circle-btn ${tab === 'about' ? 'topbar-circle-btn--active' : ''}`} onClick={() => setTab('about')} title="О программе" type="button">?</button>
           <div className="topbar-export-wrap">
-            <button className="topbar-export-btn" type="button" onClick={() => setExportMenuOpen((v) => !v)}>Экспорт →</button>
-            {exportMenuOpen && (
-              <div className="topbar-export-menu">
-                <div className="topbar-dropdown__label" style={{ marginBottom: 8 }}>Сохранить граф как PNG</div>
-                {[{ label: '1x — экранное', scale: 1 }, { label: '2x — HD', scale: 2 }, { label: '4x — Print', scale: 4 }].map(({ label, scale }) => (
-                  <button key={scale} className="topbar-export-option" type="button" onClick={() => handleExport(scale)}>{label}</button>
-                ))}
-              </div>
-            )}
-          </div>
+  <button className="topbar-export-btn" type="button" onClick={handleExport}>
+    Экспорт →
+  </button>
+</div>
         </div>
       </div>
 
@@ -716,21 +722,89 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
 
           {tab === 'about' && (
             <div className="rp-body">
-              <div className="rp-file-header">
-                <div className="rp-file-name">GraphA</div>
-                <div className="rp-file-dir">анализ зависимостей JS/TS</div>
-              </div>
-              <div className="rp-section-label">В чём суть</div>
-              <div className="rp-about-text">GraphA строит граф зависимостей между файлами вашего GitHub-репозитория и показывает архитектуру проекта в интерактивном виде.</div>
-              <div className="rp-section-label">Как использовать</div>
-              <div className="rp-steps">
-                {['Вставьте ссылку на репозиторий', 'Дождитесь построения графа', 'Кликайте на узлы', 'Изучайте метрики и проблемы'].map((text, i) => (
-                  <div key={i} className="rp-step">
-                    <span className="rp-step-n">{i + 1}</span>
-                    <span className="rp-step-t">{text}</span>
-                  </div>
-                ))}
-              </div>
+              {tab === 'about' && (
+  <div className="rp-body">
+    <div className="rp-file-header">
+      <div className="rp-file-name">GraphA</div>
+      <div className="rp-file-dir">анализ зависимостей JS/TS</div>
+    </div>
+    <div className="rp-section-label">В чём суть</div>
+    <div className="rp-about-text">GraphA строит граф зависимостей между файлами вашего GitHub-репозитория и показывает архитектуру проекта в интерактивном виде.</div>
+    <div className="rp-section-label">Как использовать</div>
+    <div className="rp-steps">
+      {['Вставьте ссылку на репозиторий', 'Дождитесь построения графа', 'Кликайте на узлы', 'Изучайте метрики и проблемы'].map((text, i) => (
+        <div key={i} className="rp-step">
+          <span className="rp-step-n">{i + 1}</span>
+          <span className="rp-step-t">{text}</span>
+        </div>
+      ))}
+    </div>
+
+    <div className="rp-section-label">Пороговые значения метрик</div>
+<div className="rp-about-text" style={{ marginBottom: 10, opacity: 0.65 }}>
+  Значения ориентировочные — для каждого проекта норма может отличаться в зависимости от его размера и архитектуры.
+</div>
+    {[
+      {
+        name: 'Fan-in',
+        desc: 'сколько файлов импортируют этот',
+        rows: [
+          { label: 'Норма', value: '1–10', color: '#2f9e44' },
+          { label: 'Внимание', value: '11–20', color: '#f0b429' },
+          { label: 'Критично', value: '> 20', color: '#d64c4c' },
+        ],
+      },
+      {
+        name: 'Fan-out',
+        desc: 'сколько файлов импортирует сам',
+        rows: [
+          { label: 'Норма', value: '1–7', color: '#2f9e44' },
+          { label: 'Внимание', value: '8–15', color: '#f0b429' },
+          { label: 'Критично', value: '> 15', color: '#d64c4c' },
+        ],
+      },
+      {
+        name: 'Centrality',
+        desc: 'роль архитектурного моста',
+        rows: [
+          { label: 'Норма', value: '< 0.01', color: '#2f9e44' },
+          { label: 'Внимание', value: '0.01–0.05', color: '#f0b429' },
+          { label: 'Критично', value: '> 0.05', color: '#d64c4c' },
+        ],
+      },
+      {
+        name: 'Циклы',
+        desc: 'циклические зависимости',
+        rows: [
+          { label: 'Норма', value: '0', color: '#2f9e44' },
+          { label: 'Критично', value: '> 0', color: '#d64c4c' },
+        ],
+      },
+    ].map(({ name, desc, rows }) => (
+      <div key={name} style={{ marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 5 }}>
+          <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--ink)' }}>{name}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.5 }}>{desc}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {rows.map(({ label, value, color }) => (
+            <div key={label} style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '3px 8px', borderRadius: 999,
+              border: `1.5px solid ${color}55`,
+              background: `${color}12`,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)', opacity: 0.7 }}>{label}:</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color }}>{value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+)}
+              
             
             </div>
           )}

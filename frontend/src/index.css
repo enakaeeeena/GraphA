@@ -61,6 +61,11 @@ code {
   background: rgba(255, 250, 235, 0.97);
   border-bottom: 1px solid rgba(61, 50, 95, 0.1);
   backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 150px;
+  height: 64px;
 }
 
 .landing-header-inner {
@@ -69,7 +74,7 @@ code {
   height: 64px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  
   text-align: left;
   box-sizing: border-box;
 }
@@ -81,9 +86,11 @@ code {
 
 .landing-nav {
   display: flex;
-  justify-content: center;
+  align-items: center;
   gap: 24px;
   opacity: 0.85;
+  margin-left: auto;
+  margin-right: 24px;
 }
 
 .landing-link {

@@ -309,7 +309,7 @@ export function MetricsTab({ result, derived, selectedPath, onSelectFile }: Prop
 
       {/* Ключевые файлы по centrality — только если есть ненулевые значения */}
       {topByCentrality.length > 0 && (
-        <Accordion title="Ключевые файлы по централности" defaultOpen>
+        <Accordion title="Ключевые файлы по централности">
           <CentralityList items={topByCentrality} selectedPath={selectedPath} onSelect={onSelectFile} />
         </Accordion>
       )}
