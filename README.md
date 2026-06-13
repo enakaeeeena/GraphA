@@ -114,25 +114,15 @@ npm run dev
 GraphA/
 
 ├── backend/
-
 │   ├── app/
-
 │   │   ├── api/          # FastAPI роуты
-
 │   │   ├── graph/        # AST-парсер, построение графа
-
 │   │   ├── models/       # ORM модели
-
 │   │   ├── repositories/ # Слой доступа к данным
-
 │   │   ├── services/     # Бизнес-логика
-
 │   │   └── utils/        # Утилиты
-
 │   └── requirements.txt
-
 └── frontend/
-
 └── src/
 
 ├── components/   # React компоненты
