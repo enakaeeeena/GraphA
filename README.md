@@ -124,9 +124,6 @@ GraphA/
 │   └── requirements.txt
 └── frontend/
 └── src/
-
 ├── components/   # React компоненты
-
 ├── api/          # API клиент
-
 └── utils/        # MCL кластеризация и др.
