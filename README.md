@@ -111,8 +111,8 @@ npm run dev
 ---
 
 ## Структура проекта
+```
 GraphA/
-
 ├── backend/
 │   ├── app/
 │   │   ├── api/          # FastAPI роуты
@@ -127,3 +127,4 @@ GraphA/
 ├── components/   # React компоненты
 ├── api/          # API клиент
 └── utils/        # MCL кластеризация и др.
+```
