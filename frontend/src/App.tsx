@@ -94,11 +94,56 @@ function App() {
     }
   };
 
-  const errorToast = error ? (
-    <div className="toast-error">
-      <strong>Ошибка:</strong> {error}
+ const errorToast = error ? (
+  <div style={{
+    position: 'fixed',
+    bottom: 24,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: 9999,
+    background: '#fff',
+    border: '2px solid #d64c4c',
+    borderRadius: 14,
+    padding: '14px 20px',
+    boxShadow: '0 8px 32px rgba(214,76,76,0.18)',
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 12,
+    maxWidth: 480,
+    width: 'calc(100vw - 48px)',
+  }}>
+    <span style={{
+      width: 20, height: 20, borderRadius: '50%',
+      background: '#d64c4c', color: '#fff',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 12, fontWeight: 900, flexShrink: 0, marginTop: 1,
+    }}>!</span>
+    <div style={{ flex: 1 }}>
+      <div style={{ fontSize: 13, fontWeight: 900, color: '#d64c4c', marginBottom: 3 }}>
+        Ошибка
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: '#3d325f', lineHeight: 1.45 }}>
+        {error === 'Failed to fetch'
+          ? 'Не удалось подключиться к серверу. Проверьте что бэкенд запущен.'
+          : error?.includes('404')
+          ? 'Репозиторий не найден. Проверьте ссылку.'
+          : error?.includes('клонир') || error?.includes('clone')
+          ? 'Не удалось клонировать репозиторий. Убедитесь что он публичный.'
+          : error}
+      </div>
     </div>
-  ) : null;
+    <button
+      type="button"
+      onClick={() => setError(null)}
+      style={{
+        background: 'transparent', border: 'none',
+        cursor: 'pointer', fontSize: 16, color: '#3d325f',
+        opacity: 0.4, flexShrink: 0, padding: 0,
+        lineHeight: 1,
+      }}
+    >✕</button>
+  </div>
+) : null;
 
   if (sessionId && view === 'graph') {
     return (

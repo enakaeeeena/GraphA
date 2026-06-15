@@ -314,7 +314,7 @@ export function LandingPage({ initialUrl = '', onStart, onError }: LandingPagePr
     <div className="landing" style={{ position: 'relative', overflowX: 'hidden', overflowY: 'visible' }}>
       {/* Фоновый граф */}
       <div style={{
-        position: 'fixed',
+        position: 'absolute',
         top: 0,
         left: 0,
         right: 0,

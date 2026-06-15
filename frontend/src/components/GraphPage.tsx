@@ -506,11 +506,44 @@ export function GraphPage({ sessionId, onBack }: GraphPageProps) {
   />
 )}
           {(!result || isStartingNew) && (
-            <div className="graph-loading">
-              <div className="graph-loading__title">{error ? 'Ошибка' : 'Загрузка'}</div>
-              <div className="graph-loading__text">{error || statusText}</div>
-            </div>
-          )}
+  <div style={{
+    position: 'absolute', inset: 0,
+    display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center',
+    gap: 20,
+  }}>
+    {!error && (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            style={{
+              width: 8, height: 8, borderRadius: '50%',
+              background: '#8074A4',
+              animation: 'graphPulse 1.2s ease-in-out infinite',
+              animationDelay: `${i * 0.18}s`,
+            }}
+          />
+        ))}
+      </div>
+    )}
+    <div style={{ textAlign: 'center' }}>
+      <div className="graph-loading__title">
+        {error ? 'Ошибка' : statusText}
+      </div>
+      {!error && (
+        <div className="graph-loading__text" style={{ marginTop: 6 }}>
+          Это может занять до 30 секунд для крупных репозиториев
+        </div>
+      )}
+      {error && (
+        <div className="graph-loading__text" style={{ color: '#d64c4c', marginTop: 6 }}>
+          {error}
+        </div>
+      )}
+    </div>
+  </div>
+)}
         </div>
 
         {/* Правая панель */}
