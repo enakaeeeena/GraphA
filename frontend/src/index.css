@@ -1980,3 +1980,7 @@ input[type="range"]::-moz-range-track {
   border-radius: 999px;
   background: rgba(128, 116, 164, 0.25);
 }
+@keyframes graphPulse {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40%           { transform: scale(1.2); opacity: 1; }
+}

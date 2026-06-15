@@ -269,6 +269,13 @@ export function LandingPage({ initialUrl = '', onStart, onError }: LandingPagePr
       onError('Введите ссылку на репозиторий GitHub');
       return;
     }
+      // Проверка формата ссылки
+  const trimmed = repoUrl.trim();
+  const isValidUrl = trimmed.startsWith('https://github.com/') && trimmed.includes('/');
+  if (!isValidUrl) {
+    onError('Введите корректную ссылку на GitHub-репозиторий, например: https://github.com/user/repo.git');
+    return;
+  }
     setIsLoading(true);
     try {
       const res = await apiClient.analyzeRepository(repoUrl.trim());
