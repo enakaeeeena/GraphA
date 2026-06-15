@@ -92,7 +92,7 @@ function DocsPage({ onClose }: { onClose: () => void }) {
       {[
         {
           name: 'Fan-in',
-          desc: 'Сколько других файлов импортируют этот файл. Высокий fan-in означает что файл широко используется в проекте — его изменение затронет много других мест. Файлы с fan-in выше 20 становятся узкими местами: любая правка в них несёт высокий риск поломки.',
+          desc: 'Сколько других файлов импортируют этот файл. Высокий fan-in означает что файл широко используется в проекте — его изменение затронет много других мест.',
           rows: [
             { label: 'Норма', value: '1–10', color: '#2f9e44' },
             { label: 'Внимание', value: '11–20', color: '#f0b429' },
@@ -101,7 +101,7 @@ function DocsPage({ onClose }: { onClose: () => void }) {
         },
         {
           name: 'Fan-out',
-          desc: 'Сколько файлов импортирует этот файл сам. Высокий fan-out говорит о том что файл берёт на себя слишком много разных задач — его сложно тестировать изолированно и легко сломать при обновлении любой из зависимостей.',
+          desc: 'Сколько файлов импортирует этот файл сам. Высокий fan-out говорит о том что файл берёт на себя слишком много разных задач.',
           rows: [
             { label: 'Норма', value: '1–7', color: '#2f9e44' },
             { label: 'Внимание', value: '8–15', color: '#f0b429' },
@@ -110,7 +110,7 @@ function DocsPage({ onClose }: { onClose: () => void }) {
         },
         {
           name: 'Centrality',
-          desc: 'Как часто файл стоит на кратчайшем пути между двумя другими файлами в графе. Файл с высокой центральностью — архитектурный мост: его изменение способно нарушить связность большой части проекта, даже если у него немного прямых связей.',
+          desc: 'Как часто файл стоит на кратчайшем пути между двумя другими файлами в графе.',
           rows: [
             { label: 'Норма', value: '0 – 0.01', color: '#2f9e44' },
             { label: 'Внимание', value: '0.01 – 0.05', color: '#f0b429' },
@@ -119,7 +119,7 @@ function DocsPage({ onClose }: { onClose: () => void }) {
         },
         {
           name: 'Циклы',
-          desc: 'Файл участвует в циклической зависимости — цепочке где A импортирует B, а B импортирует A напрямую или через посредников. Любое ненулевое значение — архитектурная проблема: такие файлы невозможно изолированно протестировать, и они мешают горячей замене модулей при разработке.',
+          desc: 'Файл участвует в циклической зависимости — цепочке где A импортирует B, а B импортирует A.',
           rows: [
             { label: 'Норма', value: '0', color: '#2f9e44' },
             { label: 'Критично', value: '> 0', color: '#d64c4c' },
@@ -156,18 +156,18 @@ function DocsPage({ onClose }: { onClose: () => void }) {
     </div>
   );
 
-  const sections: { title: string; text?: string; content?: React.ReactNode }[] = [
+  const sections = [
     {
       title: 'Что такое GraphA?',
-      text: 'GraphA — инструмент для визуализации зависимостей между файлами в JavaScript и TypeScript проектах. Введите ссылку на GitHub-репозиторий и получите интерактивный граф импортов с метриками архитектуры.',
+      text: 'GraphA — инструмент для визуализации зависимостей между файлами в JavaScript и TypeScript проектах.',
     },
     {
       title: 'Как начать',
-      text: 'Вставьте ссылку на публичный GitHub-репозиторий в формате https://github.com/user/repo.git и нажмите →. Система клонирует репозиторий, проанализирует все JS/TS файлы и построит граф зависимостей.',
+      text: 'Вставьте ссылку на публичный GitHub-репозиторий в формате https://github.com/user/repo.git и нажмите →.',
     },
     {
       title: 'Три режима графа',
-      text: 'Силовой (force-directed) — физическая симуляция, связанные файлы притягиваются друг к другу. Иерархический — файлы расположены слева направо по слоям зависимостей. Радиальный — самый связанный файл в центре, остальные по кольцам.',
+      text: 'Силовой — физическая симуляция. Иерархический — файлы по слоям зависимостей. Радиальный — самый связанный файл в центре.',
     },
     {
       title: 'Метрики',
@@ -175,42 +175,40 @@ function DocsPage({ onClose }: { onClose: () => void }) {
     },
     {
       title: 'Циклические зависимости',
-      text: 'Система автоматически находит циклы через алгоритм Косараджу (SCC). Рёбра образующие цикл выделяются красным цветом. Циклические зависимости усложняют рефакторинг и тестирование — файлы в цикле нельзя изменить или протестировать изолированно.',
+      text: 'Система автоматически находит циклы через алгоритм Косараджу (SCC). Рёбра образующие цикл выделяются красным цветом.',
     },
     {
       title: 'Настройки отображения',
-      text: 'Количество узлов — ограничение топ-N файлов по связям для производительности. Глубина — показывать только файлы до N уровней от выбранного. Изолированные файлы — файлы без связей. Скрыть файлы сборки — убирает dist, build, .next папки.',
+      text: 'Количество узлов — ограничение топ-N файлов. Глубина — показывать файлы до N уровней. Изолированные файлы — файлы без связей.',
     },
   ];
 
   return (
     <div style={{ minHeight: '100vh', background: '#fffaeb', fontFamily: 'inherit' }}>
       <header style={{
-  position: 'sticky', top: 0, zIndex: 100,
-  background: 'rgba(255,250,235,0.97)',
-  borderBottom: '1px solid rgba(61,50,95,0.1)',
-  backdropFilter: 'blur(10px)',
-}}>
-  <div style={{
-    padding: '0 150px', height: 64,
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  }}>
-    <GraphALogo size={40} />
-    <button type="button" onClick={onClose} style={{
-      height: 36, borderRadius: 999, border: 'none',
-      background: '#8074A4', color: '#fff',
-      fontWeight: 700, fontSize: 14, padding: '0 18px', cursor: 'pointer',
-    }}>← Назад</button>
-  </div>
-</header>
+        position: 'sticky', top: 0, zIndex: 100,
+        background: 'rgba(255,250,235,0.97)',
+        borderBottom: '1px solid rgba(61,50,95,0.1)',
+        backdropFilter: 'blur(10px)',
+      }}>
+        <div style={{
+          padding: '0 150px', height: 64,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <GraphALogo size={40} />
+          <button type="button" onClick={onClose} style={{
+            height: 36, borderRadius: 999, border: 'none',
+            background: '#8074A4', color: '#fff',
+            fontWeight: 700, fontSize: 14, padding: '0 18px', cursor: 'pointer',
+          }}>← Назад</button>
+        </div>
+      </header>
 
       <main style={{ padding: '60px 150px 80px', maxWidth: 860 }}>
         <h1 style={{ fontSize: 48, fontWeight: 900, color: '#3d325f', letterSpacing: '-1.5px', marginBottom: 8 }}>
           Документация
         </h1>
-        <p style={{ fontSize: 17, opacity: 0.55, marginBottom: 48 }}>
-          Руководство по использованию GraphA
-        </p>
+        <p style={{ fontSize: 17, opacity: 0.55, marginBottom: 48 }}>Руководство по использованию GraphA</p>
 
         {sections.map(({ title, text, content }) => (
           <div key={title} style={{ marginBottom: 40 }}>
@@ -269,6 +267,13 @@ export function LandingPage({ initialUrl = '', onStart, onError }: LandingPagePr
       onError('Введите ссылку на репозиторий GitHub');
       return;
     }
+    // Проверка формата ссылки
+    const trimmed = repoUrl.trim();
+    const isValidUrl = trimmed.startsWith('https://github.com/') && trimmed.includes('/');
+    if (!isValidUrl) {
+      onError('Введите корректную ссылку на GitHub-репозиторий, например: https://github.com/user/repo.git');
+      return;
+    }
     setIsLoading(true);
     try {
       const res = await apiClient.analyzeRepository(repoUrl.trim());
@@ -289,38 +294,64 @@ export function LandingPage({ initialUrl = '', onStart, onError }: LandingPagePr
     }
   };
 
+  const handleTry = async () => {
+    setIsLoading(true);
+    try {
+      const res = await apiClient.analyzeRepository(DEMO_URL);
+      onStart(res.session_id, DEMO_URL, 'vite');
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Ошибка при запуске демо');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (showDocs) {
     return <DocsPage onClose={() => setShowDocs(false)} />;
   }
 
   return (
-    <div className="landing">
-      <header className="landing-header">
-        <GraphALogo size={40} />
-        <nav className="landing-nav">
-          <a className="landing-link" href="#" onClick={(e) => { e.preventDefault(); setModal('how'); }}>
-            Как это работает
-          </a>
-          <a className="landing-link" href="#" onClick={(e) => { e.preventDefault(); setShowDocs(true); }}>
-            Документация
-          </a>
-        </nav>
-        <button
-          className="landing-cta"
-          type="button"
-          onClick={() => setRepoUrl(DEMO_URL)}
-        >
-          Попробовать →
-        </button>
-      </header>
+    <div className="landing" style={{ position: 'relative', overflowX: 'hidden', overflowY: 'visible' }}>
+      {/* Фоновый граф */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflow: 'hidden',
+        pointerEvents: 'none',
+        zIndex: 0,
+      }}>
+        <LandingGraph />
+      </div>
 
-      <main className="landing-main">
+      {/* ШАПКА - ТОЛЬКО КЛАССЫ, БЕЗ INLINE СТИЛЕЙ */}
+   <header className="landing-header">
+  <div className="landing-header-inner">
+    <GraphALogo size={40} />
+    <div style={{ display: 'flex', gap: 24 }}>
+      <a className="landing-link" href="#" onClick={(e) => { e.preventDefault(); setShowDocs(true); }}>
+        Документация
+      </a>
+      <a className="landing-link" href="#" onClick={(e) => { e.preventDefault(); setModal('how'); }}>
+        Как это работает
+      </a>
+      <button className="landing-cta" type="button" onClick={handleTry} disabled={isLoading}>
+        {isLoading ? '…' : 'Попробовать →'}
+      </button>
+    </div>
+  </div>
+</header>
+
+      <main className="landing-main" style={{ position: 'relative', zIndex: 1 }}>
         {savedSession && (
           <div style={{
             marginBottom: 24, display: 'flex', alignItems: 'center',
             justifyContent: 'space-between', gap: 16,
             border: '1.5px solid rgba(128,116,164,0.35)',
             borderRadius: 14, padding: '12px 16px',
+            background: 'rgba(255, 250, 235, 0.8)',
           }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#3d325f' }}>
@@ -414,7 +445,7 @@ export function LandingPage({ initialUrl = '', onStart, onError }: LandingPagePr
         </div>
       </footer>
 
-      {/* МОДАЛКА: Как это работает */}
+      {/* МОДАЛКИ */}
       {modal === 'how' && (
         <Modal onClose={() => setModal(null)}>
           <h2 style={{ fontSize: 24, fontWeight: 900, color: '#3d325f', marginBottom: 20, letterSpacing: '-0.5px' }}>
@@ -422,9 +453,9 @@ export function LandingPage({ initialUrl = '', onStart, onError }: LandingPagePr
           </h2>
           {[
             { step: '1', title: 'Клонирование', text: 'Система получает ссылку на GitHub-репозиторий и клонирует его на сервер через Git.' },
-            { step: '2', title: 'AST-анализ', text: 'Каждый JS/TS файл разбирается через tree-sitter. Из синтаксического дерева извлекаются все конструкции импорта: ES6 import, require(), dynamic import().' },
-            { step: '3', title: 'Построение графа', text: 'Файлы становятся вершинами графа, импорты — рёбрами. Через NetworkX вычисляются метрики: degree, fan-in, fan-out, betweenness centrality.' },
-            { step: '4', title: 'Визуализация', text: 'Граф отображается интерактивно через D3.js. Доступны три режима: силовой, иерархический и радиальный. Кластеризация выполняется алгоритмом Маркова (MCL).' },
+            { step: '2', title: 'AST-анализ', text: 'Каждый JS/TS файл разбирается через tree-sitter. Из синтаксического дерева извлекаются все конструкции импорта.' },
+            { step: '3', title: 'Построение графа', text: 'Файлы становятся вершинами графа, импорты — рёбрами. Вычисляются метрики: degree, fan-in, fan-out, betweenness centrality.' },
+            { step: '4', title: 'Визуализация', text: 'Граф отображается интерактивно через D3.js. Доступны три режима: силовой, иерархический и радиальный.' },
           ].map(({ step, title, text }) => (
             <div key={step} style={{ display: 'flex', gap: 16, marginBottom: 18 }}>
               <div style={{
@@ -442,8 +473,6 @@ export function LandingPage({ initialUrl = '', onStart, onError }: LandingPagePr
         </Modal>
       )}
 
-      {/* МОДАЛКА: Обратная связь */}
-   
       {modal === 'feedback' && (
         <Modal onClose={() => setModal(null)}>
           <h2 style={{ fontSize: 24, fontWeight: 900, color: '#3d325f', marginBottom: 8, letterSpacing: '-0.5px' }}>
@@ -453,19 +482,14 @@ export function LandingPage({ initialUrl = '', onStart, onError }: LandingPagePr
             Нашли баг, есть предложение или вопрос — пишите!
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <a
-              href="https://t.me/enakaeeeena"
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14,
-                padding: '14px 18px', borderRadius: 14,
-                border: '1.5px solid rgba(128,116,164,0.25)',
-                background: 'rgba(128,116,164,0.06)',
-                textDecoration: 'none', color: '#3d325f',
-              }}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <a href="https://t.me/enakaeeeena" target="_blank" rel="noreferrer" style={{
+              display: 'flex', alignItems: 'center', gap: 14,
+              padding: '14px 18px', borderRadius: 14,
+              border: '1.5px solid rgba(128,116,164,0.25)',
+              background: 'rgba(128,116,164,0.06)',
+              textDecoration: 'none', color: '#3d325f',
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                 <path d="M22 2L11 13" stroke="#3d325f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#3d325f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
@@ -474,17 +498,14 @@ export function LandingPage({ initialUrl = '', onStart, onError }: LandingPagePr
                 <div style={{ fontSize: 13, opacity: 0.55 }}>@enakaeeeena</div>
               </div>
             </a>
-            <a
-              href="mailto:enakaena@mail.ru"
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14,
-                padding: '14px 18px', borderRadius: 14,
-                border: '1.5px solid rgba(128,116,164,0.25)',
-                background: 'rgba(128,116,164,0.06)',
-                textDecoration: 'none', color: '#3d325f',
-              }}
-            >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <a href="mailto:enakaena@mail.ru" style={{
+              display: 'flex', alignItems: 'center', gap: 14,
+              padding: '14px 18px', borderRadius: 14,
+              border: '1.5px solid rgba(128,116,164,0.25)',
+              background: 'rgba(128,116,164,0.06)',
+              textDecoration: 'none', color: '#3d325f',
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                 <rect x="2" y="4" width="20" height="16" rx="2" stroke="#3d325f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M2 7L12 13L22 7" stroke="#3d325f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
@@ -499,4 +520,3 @@ export function LandingPage({ initialUrl = '', onStart, onError }: LandingPagePr
     </div>
   );
 }
- 

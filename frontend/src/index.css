@@ -70,14 +70,14 @@ code {
 
 .landing-header-inner {
   width: 100%;
-  padding: 0 150px;
+  padding: 0;
   height: 64px;
   display: flex;
   align-items: center;
-  
-  text-align: left;
+  justify-content: space-between;
   box-sizing: border-box;
 }
+
 
 .landing-brand {
   font-weight: 800;
@@ -109,6 +109,28 @@ code {
   padding: 0 16px;
   cursor: pointer;
   font-weight: 700;
+}
+.landing-cta {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  height: 36px;
+  padding: 0 16px;
+  cursor: pointer;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+.landing-link {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
 }
 
 .landing-main {
