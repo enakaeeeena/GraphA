@@ -122,9 +122,17 @@ GraphA/
 │   │   ├── services/     # Бизнес-логика
 │   │   └── utils/        # Утилиты
 │   └── requirements.txt
+
+## С
 └── frontend/
 └── src/
 ├── components/   # React компоненты
 ├── api/          # API клиент
 └── utils/        # MCL кластеризация и др.
 ```
+ 
+## Реализация
+<img width="1845" height="872" alt="Grapha_landing" src="https://github.com/user-attachments/assets/38baaa9a-f365-400d-beae-6a565f0ade12" />
+<img width="1845" height="872" alt="Grapha_error_1" src="https://github.com/user-attachments/assets/2af4d868-5068-4fcb-97b8-31b019394121" />
+
+
